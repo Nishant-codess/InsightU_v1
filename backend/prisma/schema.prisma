@@ -1,0 +1,404 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  PARENT
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String?
+  role         UserRole
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student       Student?
+  teacher       Teacher?
+  parent        Parent?
+  admin         Admin?
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+
+  @@index([email])
+}
+
+model Student {
+  id                 String @id @default(uuid())
+  userId             String @unique
+  user               User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  registrationNumber String @unique
+  course             String
+  department         String
+  branch             String
+  year               Int
+  section            String
+  batch              String
+  group              String
+  collegeMailId      String
+
+  linkedParents      ParentStudent[]
+  quizParticipations QuizParticipation[]
+  noteBookmarks      NoteBookmark[]
+  noteAnnotations    NoteAnnotation[]
+  examMarks          StudentExamMarks[]
+  performances       StudentPerformance[]
+  academicHealth     AcademicHealth?
+
+  @@index([registrationNumber])
+  @@index([year, section, batch])
+  @@index([group])
+}
+
+model Teacher {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  department String
+  subjects   String[]
+
+  lectureNotes LectureNote[]
+  quizzes      Quiz[]
+  assignments  Assignment[]
+  exams        Exam[]
+  sectionAssignments SectionTeacher[]
+
+  @@index([department])
+}
+
+model Parent {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  linkedStudents ParentStudent[]
+}
+
+model ParentStudent {
+  id        String   @id @default(uuid())
+  parentId  String
+  parent    Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  linkedAt  DateTime @default(now())
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+}
+
+model Admin {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model LectureNote {
+  id          String   @id @default(uuid())
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject     String
+  topic       String
+  title       String
+  description String?
+  fileUrl     String
+  fileType    String
+  lectureDate DateTime
+  uploadedAt  DateTime @default(now())
+
+  bookmarks   NoteBookmark[]
+  annotations NoteAnnotation[]
+
+  @@index([subject, topic])
+  @@index([teacherId])
+  @@index([lectureDate])
+  @@index([subject, lectureDate])
+}
+
+model NoteBookmark {
+  id        String      @id @default(uuid())
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  noteId    String
+  note      LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([studentId, noteId])
+  @@index([studentId])
+}
+
+model NoteAnnotation {
+  id        String      @id @default(uuid())
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  noteId    String
+  note      LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  content   String
+  page      Int?
+  positionX Float?
+  positionY Float?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([studentId, noteId])
+}
+
+model Quiz {
+  id              String   @id @default(uuid())
+  teacherId       String
+  teacher         Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title           String
+  subject         String
+  questions       Json
+  timePerQuestion Int
+  createdAt       DateTime @default(now())
+
+  sessions QuizSession[]
+
+  @@index([teacherId])
+  @@index([subject])
+  @@index([createdAt])
+}
+
+model QuizSession {
+  id                   String    @id @default(uuid())
+  quizId               String
+  quiz                 Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  sessionCode          String    @unique
+  qrCodeUrl            String
+  status               String
+  currentQuestionIndex Int       @default(0)
+  startedAt            DateTime  @default(now())
+  endedAt              DateTime?
+
+  participations QuizParticipation[]
+
+  @@index([sessionCode])
+  @@index([quizId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model QuizParticipation {
+  id          String      @id @default(uuid())
+  sessionId   String
+  session     QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers     Json
+  score       Int
+  rank        Int
+  completedAt DateTime    @default(now())
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+}
+
+model Assignment {
+  id          String   @id @default(uuid())
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject     String
+  topic       String
+  title       String
+  description String
+  fileUrl     String?
+  dueDate     DateTime
+  maxMarks    Int
+  createdAt   DateTime @default(now())
+
+  @@index([teacherId])
+  @@index([subject])
+  @@index([dueDate])
+  @@index([subject, dueDate])
+}
+
+model Exam {
+  id         String   @id @default(uuid())
+  teacherId  String
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject    String
+  examName   String
+  examDate   DateTime
+  totalMarks Int
+  questions  Json
+  createdAt  DateTime @default(now())
+
+  marks StudentExamMarks[]
+
+  @@index([teacherId])
+  @@index([subject])
+  @@index([examDate])
+  @@index([subject, examDate])
+}
+
+model StudentExamMarks {
+  id            String   @id @default(uuid())
+  examId        String
+  exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionMarks Json
+  totalMarks    Int
+  percentage    Float
+  topicScores   Json
+  recordedAt    DateTime @default(now())
+
+  @@unique([examId, studentId])
+  @@index([studentId])
+}
+
+model StudentPerformance {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject        String
+  topic          String
+  assessmentType String
+  score          Float
+  maxScore       Float
+  percentage     Float
+  assessmentDate DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([studentId, subject, topic])
+  @@index([studentId, assessmentDate])
+  @@index([studentId, subject])
+  @@index([subject, topic])
+}
+
+model AcademicHealth {
+  id               String   @id @default(uuid())
+  studentId        String   @unique
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  overallScore     Float
+  quizScore        Float
+  assignmentScore  Float
+  examScore        Float
+  consistencyScore Float
+  weakSubjects     String[]
+  weakTopics       Json
+  calculatedAt     DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Timetable {
+  id          String   @id @default(uuid())
+  year        Int
+  batch       String
+  fileUrl     String
+  schedule    Json
+  uploadedAt  DateTime @default(now())
+  processedAt DateTime @default(now())
+
+  @@unique([year, batch])
+}
+
+model AcademicCalendar {
+  id              String   @id @default(uuid())
+  academicYear    String
+  fileUrl         String
+  dayOrderMapping Json
+  uploadedAt      DateTime @default(now())
+  processedAt     DateTime @default(now())
+}
+
+enum NotificationType {
+  NEW_LECTURE_NOTE
+  QUIZ_STARTED
+  QUIZ_SCHEDULED
+  ASSIGNMENT_POSTED
+  PERFORMANCE_ALERT
+  SYSTEM_ANNOUNCEMENT
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  actionUrl String?
+  metadata  Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model NotificationPreferences {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  enableInApp       Boolean  @default(true)
+  notificationTypes Json
+  updatedAt         DateTime @updatedAt
+}
+model SectionTeacher {
+  id         String   @id @default(uuid())
+  teacherId  String
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  year       Int
+  section    String
+  department String
+  createdAt  DateTime @default(now())
+
+  @@unique([teacherId, year, section, department])
+  @@index([year, section, department])
+}
+
+model SectionPost {
+  id         String   @id @default(uuid())
+  year       Int
+  section    String
+  department String
+  authorId   String   // Can be User ID (Student or Teacher)
+  authorName String
+  content    String
+  attachments Json?    // Array of file URLs
+  createdAt  DateTime @default(now())
+
+  @@index([year, section, department])
+  @@index([createdAt])
+}
