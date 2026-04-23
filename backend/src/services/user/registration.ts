@@ -12,7 +12,7 @@ export interface StudentRegistrationData {
   department: string;
   year: number;
   section: string;
-  batch: string;
+  batch: string | number;
   collegeMailId: string;
 }
 
@@ -49,7 +49,8 @@ export async function registerStudent(data: StudentRegistrationData) {
   }
 
   // Property 12: Batch value constraints
-  if (!['Batch 1', 'Batch 2'].includes(data.batch)) {
+  const batchNum = typeof data.batch === 'number' ? data.batch : parseInt(String(data.batch).replace(/\D/g, ''), 10);
+  if (!['Batch 1', 'Batch 2'].includes(String(data.batch)) && !(batchNum === 1 || batchNum === 2)) {
     throw new Error('Batch must be "Batch 1" or "Batch 2"');
   }
 
@@ -90,8 +91,8 @@ export async function registerStudent(data: StudentRegistrationData) {
           department: data.department,
           branch: 'CSE', // Adding default branch as it's now required
           year: data.year,
-          section: data.section,
-          batch: data.batch,
+          section: `${data.section}${String(data.batch).includes('1') ? '1' : '2'}`,
+          batch: String(data.batch),
           group,
           collegeMailId: data.collegeMailId,
         },
@@ -161,50 +162,6 @@ export async function registerTeacher(data: TeacherRegistrationData) {
   }
 }
 
-export async function registerParent(data: ParentRegistrationData) {
-  if (!data.email) throw new Error('Email is required');
-  
-  // Property 3: Parent registration enforces email/password
-  if (!data.password) {
-    throw new Error('Password is required for parent registration');
-  }
-  if (data.password.length < 6) {
-    throw new Error('Password must be at least 6 characters');
-  }
-
-  const existingUser = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
-
-  if (existingUser) {
-    throw new Error('Email already exists');
-  }
-
-  const passwordHash = await bcrypt.hash(data.password, 10);
-
-  try {
-    return await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email: data.email,
-          passwordHash,
-          role: UserRole.PARENT,
-        },
-      });
-
-      const parent = await tx.parent.create({
-        data: {
-          userId: user.id,
-          name: data.name,
-        },
-      });
-
-      return { user, parent };
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      throw new Error('Parent with this email already exists');
-    }
-    throw error;
-  }
+export async function registerParent(_data: any) {
+  throw new Error('Parent registration is not supported.');
 }

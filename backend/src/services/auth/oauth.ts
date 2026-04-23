@@ -1,15 +1,18 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile, VerifyCallback } from 'passport-google-oauth20';
+import axios from 'axios';
 import prisma from '../../config/database';
 import { generateTokens, UserRole } from './jwt';
 
+let _prismaOverride: any = null;
+
 export function getPrismaInstance() {
-  return prisma;
+  return _prismaOverride || prisma;
 }
 
-// For testing purposes
-export function setPrismaInstance(_instance: any): void {
-  // Not needed if using singleton
+// For testing purposes — allows injecting a mock Prisma client
+export function setPrismaInstance(instance: any): void {
+  _prismaOverride = instance;
 }
 
 export interface OAuthRedirectURL {
@@ -128,6 +131,8 @@ export interface AuthResult {
     email: string;
     role: UserRole;
     name?: string;
+    student?: any;
+    teacher?: any;
   };
   accessToken?: string;
   refreshToken?: string;
@@ -160,7 +165,6 @@ export async function handleGoogleCallback(code: string): Promise<AuthResult> {
 
   try {
     // Exchange authorization code for access token using axios for better error handling
-    const axios = (await import('axios')).default;
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
       code,
       client_id: clientID,
@@ -197,10 +201,9 @@ export async function handleGoogleCallback(code: string): Promise<AuthResult> {
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
-        student: { select: { name: true } },
-        teacher: { select: { name: true } },
-        parent: { select: { name: true } },
-        admin: { select: { name: true } },
+        student: true,
+        teacher: true,
+        admin: true,
       },
     });
 
@@ -216,7 +219,7 @@ export async function handleGoogleCallback(code: string): Promise<AuthResult> {
     }
 
     // Get name from profile if available
-    const profileName = user.student?.name || user.teacher?.name || user.parent?.name || user.admin?.name || name;
+    const profileName = user.student?.name || user.teacher?.name || user.admin?.name || name;
 
     // Generate JWT tokens
     const tokens = generateTokens(user.id, user.role as UserRole, user.email);
@@ -227,6 +230,8 @@ export async function handleGoogleCallback(code: string): Promise<AuthResult> {
         email: user.email,
         role: user.role as UserRole,
         name: profileName || undefined,
+        student: user.student,
+        teacher: user.teacher,
       },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

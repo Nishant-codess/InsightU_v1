@@ -3,7 +3,10 @@ export const validateRegistrationNumber = (regNumber: string): boolean => {
   return pattern.test(regNumber);
 };
 
-export const computeGroup = (section: string, batch: string): string => {
+export const computeGroup = (section: string, batch: string | number): string => {
+  if (typeof batch === 'number') {
+    return `${section}${batch}`;
+  }
   const batchNum = batch.split(' ').pop();
   return `${section}${batchNum}`;
 };

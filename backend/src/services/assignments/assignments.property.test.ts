@@ -11,11 +11,14 @@ jest.mock('../../config/database', () => {
     default: {
       assignment: {
         create: jest.fn(async ({ data }) => {
-          const assignment = { id: `asgn-${Date.now()}`, ...data };
+          const assignment = { id: `asgn-${Date.now()}-${Math.random()}`, ...data };
           assignments.push(assignment);
           return assignment;
         }),
-        findUnique: jest.fn(async ({ where }) => assignments.find(a => a.id === where.id) || null),
+        findUnique: jest.fn(async ({ where }) => {
+          const found = assignments.find(a => a.id === where.id);
+          return found || null;
+        }),
       },
       notification: {
         createMany: jest.fn(),

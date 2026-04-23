@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 export enum UserRole {
   STUDENT = 'STUDENT',
   TEACHER = 'TEACHER',
-  PARENT = 'PARENT',
   ADMIN = 'ADMIN',
 }
 

@@ -58,6 +58,9 @@ jest.mock('../../config/database', () => {
           return [{ userId: 'student-1' }, { userId: 'student-2' }];
         })
       },
+      studentPerformance: {
+        findMany: jest.fn(async () => []),
+      },
       _store: { notifications, preferences },
     },
   };
@@ -81,7 +84,7 @@ describe('Feature: insightu-platform, Notification Service', () => {
           const sent = await sendNotification({ userId, type, title, message });
           
           if (sent) {
-            const fetchedList = await getUserNotifications(userId, false);
+            const fetchedList = await getUserNotifications(userId, { read: false });
             const fetched = fetchedList.find(n => n.id === sent.id);
             
             expect(fetched).toBeDefined();
@@ -93,7 +96,7 @@ describe('Feature: insightu-platform, Notification Service', () => {
             // Mark as read
             await markAsRead(sent.id, userId);
             
-            const unreadList = await getUserNotifications(userId, true);
+            const unreadList = await getUserNotifications(userId, { read: false });
             expect(unreadList.find(n => n.id === sent.id)).toBeUndefined();
           }
         }
@@ -143,8 +146,8 @@ describe('Feature: insightu-platform, Notification Service', () => {
     
     await notifyCourseStudentsAboutNote(teacherId, subject, '/url/to/note');
     
-    const notifsStudent1 = await getUserNotifications('student-1');
-    const notifsStudent2 = await getUserNotifications('student-2');
+    const notifsStudent1 = await getUserNotifications('student-1', {});
+    const notifsStudent2 = await getUserNotifications('student-2', {});
     
     expect(notifsStudent1.length).toBe(1);
     expect(notifsStudent1[0].type).toBe(NotificationType.NEW_LECTURE_NOTE);

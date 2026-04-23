@@ -3,9 +3,9 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { motion } from 'framer-motion';
 
 export default function AuthLayout() {
-   const { isAuthenticated } = useAuthStore();
+   const { isAuthenticated, token } = useAuthStore();
 
-   if (isAuthenticated) {
+   if (isAuthenticated && token) {
       return <Navigate to="/dashboard" replace />;
    }
 

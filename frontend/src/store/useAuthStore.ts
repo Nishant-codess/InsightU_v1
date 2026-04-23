@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type UserRole = 'STUDENT' | 'TEACHER' | 'PARENT' | 'ADMIN';
+export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
 
 export interface User {
   id: string;
@@ -32,6 +32,16 @@ interface AuthState {
   updateUser: (user: Partial<User>) => void;
 }
 
+/** Decode JWT payload and check if it's expired */
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -47,6 +57,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      // On rehydration, clear state if token is expired
+      onRehydrateStorage: () => (state) => {
+        if (state?.token && isTokenExpired(state.token)) {
+          state.user = null;
+          state.token = null;
+          state.isAuthenticated = false;
+        }
+      },
     }
   )
 );

@@ -364,7 +364,7 @@ describe('Feature: insightu-platform, Property 5: Authentication failure handlin
 
           // Test: Registration should fail with descriptive error
           try {
-            await registerWithEmail(credentials, UserRole.STUDENT);
+            await registerWithEmail({ ...credentials, role: UserRole.STUDENT, name: 'Test User' });
             // If we get here, registration succeeded when it shouldn't have
             throw new Error('Registration should have failed but succeeded');
           } catch (error) {

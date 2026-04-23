@@ -3,13 +3,21 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { generateTokens, UserRole } from './jwt';
 
+let _prismaOverride: any = null;
+
 export function getPrismaInstance() {
-  return prisma;
+  return _prismaOverride || prisma;
 }
 
-// For testing purposes
-export function setPrismaInstance(_instance: any): void {
-  // Not needed if using singleton, but keeping signature if others use it
+// For testing purposes — allows injecting a mock Prisma client
+export function setPrismaInstance(instance: any): void {
+  _prismaOverride = instance;
+}
+
+/** Simple email/password credentials used by tests */
+export interface EmailCredentials {
+  email: string;
+  password: string;
 }
 
 export interface AuthResult {
@@ -18,6 +26,8 @@ export interface AuthResult {
     email: string;
     role: UserRole;
     name?: string;
+    student?: any;
+    teacher?: any;
   };
   accessToken: string;
   refreshToken: string;
@@ -90,7 +100,7 @@ export async function registerWithEmail(
 
   // Use a transaction to ensure both user and profile are created
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Create the user
       const user = await tx.user.create({
         data: {
@@ -113,7 +123,7 @@ export async function registerWithEmail(
               department: profileData.department || 'Unknown',
               branch: profileData.branch || 'Unknown',
               year: profileData.year || 1,
-              section: profileData.section || 'A',
+              section: `${profileData.section || 'A'}${ (profileData.batch || 'Batch 1').includes('1') ? '1' : '2' }`,
               batch: profileData.batch || 'Batch 1',
               group: profileData.group || 'G1',
               collegeMailId: profileData.collegeMailId || email,
@@ -129,14 +139,9 @@ export async function registerWithEmail(
             },
           });
           break;
-        case 'PARENT':
-          await tx.parent.create({
-            data: {
-              userId: user.id,
-              name,
-            },
-          });
+        case 'PARENT': {
           break;
+        }
         case 'ADMIN':
           await tx.admin.create({
             data: {
@@ -204,10 +209,9 @@ export async function loginWithEmail(
   const user = await prisma.user.findUnique({
     where: { email },
     include: {
-      student: { select: { name: true } },
-      teacher: { select: { name: true } },
-      parent: { select: { name: true } },
-      admin: { select: { name: true } },
+      student: true,
+      teacher: true,
+      admin: true,
     },
   });
 
@@ -228,7 +232,7 @@ export async function loginWithEmail(
   }
 
   // Get name from profile
-  const name = user.student?.name || user.teacher?.name || user.parent?.name || user.admin?.name;
+  const name = user.student?.name || user.teacher?.name || user.admin?.name;
 
   // Generate JWT tokens
   const tokens = generateTokens(user.id, user.role as UserRole, user.email);
@@ -239,6 +243,8 @@ export async function loginWithEmail(
       email: user.email,
       role: user.role as UserRole,
       name,
+      student: user.student,
+      teacher: user.teacher,
     },
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,

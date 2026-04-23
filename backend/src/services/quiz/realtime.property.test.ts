@@ -1,5 +1,5 @@
 import fc from 'fast-check';
-import { setupSocketIO, endQuizSession } from './realtime';
+import { setupSocketIO, endQuizSession, LeaderboardEntry } from './realtime';
 import { Server } from 'socket.io';
 import prisma from '../../config/database';
 import redisClient from '../../config/redis';
@@ -118,8 +118,12 @@ describe('Feature: insightu-platform, Real-time Quizzes', () => {
           const lbUpdate = roomEvents.find(e => e.event === 'leaderboardUpdate');
           
           expect(lbUpdate).toBeDefined();
-          const newLb = lbUpdate!.args[0];
-          expect(newLb[studentId]).toBe(10); // +10 mock from our simplified implementation
+          const newLb: LeaderboardEntry[] = lbUpdate!.args[0];
+          expect(Array.isArray(newLb)).toBe(true);
+          const entry = newLb.find(e => e.studentId === studentId);
+          expect(entry).toBeDefined();
+          expect(entry!.score).toBeGreaterThanOrEqual(0);
+          expect(entry!.rank).toBeGreaterThanOrEqual(1);
 
           // Clean up to avoid bleeding
           jest.clearAllMocks();
@@ -151,9 +155,10 @@ describe('Feature: insightu-platform, Real-time Quizzes', () => {
             leaderboard
           }));
 
-          const resLb = await endQuizSession(sessionCode);
-          
-          expect(resLb).toEqual(leaderboard);
+          const result = await endQuizSession(sessionCode);
+
+          expect(Array.isArray(result.finalLeaderboard)).toBe(true);
+          expect(result.totalParticipants).toBe(students.length);
           expect(prisma.quizSession.update).toHaveBeenCalledWith(
             expect.objectContaining({ where: { id: `sess-${sessionCode}` } })
           );

@@ -1,0 +1,741 @@
+{
+  "2026-01-01": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "New Year's Day"
+  },
+  "2026-01-02": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-03": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-04": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-05": {
+    "dayOrder": null,
+    "type": "event"
+  },
+  "2026-01-06": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-07": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-08": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-01-09": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-01-10": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-11": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-12": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-01-13": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-01-14": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-01-15": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Pongal"
+  },
+  "2026-01-16": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Thiruvalluvar Day"
+  },
+  "2026-01-17": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Uzhavar Thirunal"
+  },
+  "2026-01-18": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-19": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-01-20": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-01-21": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-01-22": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-01-23": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-01-24": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-25": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-01-26": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Republic Day"
+  },
+  "2026-01-27": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-01-28": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-01-29": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-01-30": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-01-31": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-01": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-02": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-02-03": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-02-04": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-02-05": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-02-06": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-02-07": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-08": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-09": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-02-10": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-02-11": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-02-12": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-02-13": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-02-14": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-15": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-16": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-02-17": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-02-18": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-02-19": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-02-20": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-02-21": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-22": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-02-23": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-02-24": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-02-25": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-02-26": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-02-27": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-02-28": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-01": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-02": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-03-03": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-03-04": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Holi"
+  },
+  "2026-03-05": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-03-06": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-03-07": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-08": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-09": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-03-10": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-03-11": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-03-12": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-03-13": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-03-14": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-15": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-16": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-03-17": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-03-18": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-03-19": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Telugu New Year"
+  },
+  "2026-03-20": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-03-21": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Ramzan"
+  },
+  "2026-03-22": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-23": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-03-24": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-03-25": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-03-26": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-03-27": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-03-28": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-29": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-03-30": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-03-31": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Mahaveer Jayanthi"
+  },
+  "2026-04-01": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-04-02": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-04-03": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Good Friday"
+  },
+  "2026-04-04": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-05": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-06": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-04-07": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-04-08": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-04-09": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-04-10": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-04-11": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-12": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-13": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-04-14": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Tamil New Year / Ambedkar Jayanti"
+  },
+  "2026-04-15": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-04-16": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-04-17": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-04-18": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-19": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-20": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-04-21": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-04-22": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-04-23": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "General Election - Holiday"
+  },
+  "2026-04-24": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-04-25": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-26": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-04-27": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-04-28": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-04-29": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-04-30": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-05-01": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "May Day"
+  },
+  "2026-05-02": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-03": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-04": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-05-05": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-05-06": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-05-07": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-08": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-09": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-10": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-11": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-12": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-13": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-14": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-15": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-16": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-17": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-18": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-19": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-20": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-21": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-22": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-23": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-24": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-25": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-26": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-27": {
+    "dayOrder": null,
+    "type": "working"
+  },
+  "2026-05-28": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Bakrid"
+  },
+  "2026-05-29": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-05-30": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-05-31": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-01": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-06-02": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-06-03": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-06-04": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-06-05": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-06-06": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-07": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-08": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-06-09": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-06-10": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-06-11": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-06-12": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-06-13": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-14": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-15": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-06-16": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-06-17": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-06-18": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-06-19": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-06-20": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-21": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-22": {
+    "dayOrder": 3,
+    "type": "working"
+  },
+  "2026-06-23": {
+    "dayOrder": 4,
+    "type": "working"
+  },
+  "2026-06-24": {
+    "dayOrder": 5,
+    "type": "working"
+  },
+  "2026-06-25": {
+    "dayOrder": 1,
+    "type": "working"
+  },
+  "2026-06-26": {
+    "dayOrder": null,
+    "type": "holiday",
+    "name": "Muharram"
+  },
+  "2026-06-27": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-28": {
+    "dayOrder": null,
+    "type": "normal"
+  },
+  "2026-06-29": {
+    "dayOrder": 2,
+    "type": "working"
+  },
+  "2026-06-30": {
+    "dayOrder": 3,
+    "type": "working"
+  }
+}

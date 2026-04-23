@@ -1,0 +1,128 @@
+# Implementation Plan
+
+- [ ] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Authentication Failures Across Password Visibility, Email/Password Login, and OAuth Callback
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bugs exist
+  - **Scoped PBT Approach**: For deterministic bugs, scope the property to the concrete failing case(s) to ensure reproducibility
+  - Test implementation details from Bug Condition in design:
+    - Password field visibility: type password and verify text is visible with sufficient contrast
+    - Eye icon toggle: click eye icon and verify input type switches between "password" and "text"
+    - Eye icon overlap: type long password and verify eye icon doesn't overlap text
+    - Valid credentials authentication: call loginWithEmail with admin@srmist.edu.in / admin123 and verify success
+    - OAuth callback: call handleGoogleCallback with valid authorization code and verify token exchange succeeds
+  - The test assertions should match the Expected Behavior Properties from design (2.1-2.7)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found to understand root cause:
+    - Password text invisible or low contrast
+    - Eye icon overlaps password text
+    - Valid credentials rejected with "Invalid email or password"
+    - OAuth callback fails with error
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
+
+- [ ] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Non-Buggy Authentication Behavior
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs:
+    - Invalid credentials: loginWithEmail with wrong password returns "Invalid email or password"
+    - OAuth-only account: loginWithEmail for OAuth user returns "This account uses OAuth authentication"
+    - Missing OAuth config: handleGoogleCallback throws "Google OAuth credentials not configured" when env vars missing
+    - Token generation: successful login generates JWT access and refresh tokens
+    - Email input styling: email field maintains current styling and icon display
+    - Form submission: loading state and button disable behavior work correctly
+    - Navigation: "Forgot Password" and "Register now" links navigate correctly
+    - OAuth user not in DB: returns needsProfile flag and redirects to registration
+    - OAuth user in DB: retrieves profile data (student/teacher/parent/admin)
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements (3.1-3.10)
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
+
+- [ ] 3. Fix for authentication login failures
+
+  - [ ] 3.1 Fix password field visibility and eye icon positioning (frontend/src/components/ui/Input.tsx and frontend/src/pages/auth/Login.tsx)
+    - Add conditional right padding to password input field to prevent eye icon overlap (pr-12 when type === "password")
+    - Verify text-white class provides sufficient contrast with bg-surface/50 background
+    - Adjust eye icon positioning to use top-1/2 -translate-y-1/2 for reliable vertical centering
+    - Ensure showPassword state correctly toggles input type between "text" and "password"
+    - _Bug_Condition: isBugCondition(input) where input.type == "PASSWORD_FIELD_INTERACTION" AND (passwordTextNotVisible(input) OR eyeIconOverlapsText(input))_
+    - _Expected_Behavior: expectedBehavior(result) from design - visible password text with sufficient contrast (2.1), working eye icon toggle (2.2), no text overlap (2.3)_
+    - _Preservation: Email input styling unchanged (3.5), form submission behavior unchanged (3.6), navigation links unchanged (3.7)_
+    - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.5, 3.6, 3.7_
+
+  - [ ] 3.2 Fix email/password authentication (backend/src/services/auth/emailAuth.ts)
+    - Add explicit JWT secret validation at start of loginWithEmail function
+    - Add debug logging to verify user lookup, passwordHash existence, and bcrypt.compare result
+    - Verify bcrypt.compare() is working correctly with SALT_ROUNDS consistency
+    - Ensure database has been seeded with users from YOUR_CREDENTIALS.md (check backend/prisma/seed.ts)
+    - Verify password hashes are created correctly during seeding
+    - _Bug_Condition: isBugCondition(input) where input.type == "EMAIL_PASSWORD_LOGIN" AND credentialsExistInDatabase(input.email, input.password) AND authenticationFails(input)_
+    - _Expected_Behavior: expectedBehavior(result) from design - successful authentication with valid credentials (2.4, 2.5)_
+    - _Preservation: OAuth-only account error unchanged (3.1), invalid credentials error unchanged (3.2), token generation unchanged (3.3), dashboard redirect unchanged (3.4)_
+    - _Requirements: 1.4, 1.5, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4_
+
+  - [ ] 3.3 Fix Google OAuth callback (backend/src/services/auth/oauth.ts)
+    - Add explicit environment variable validation at start of handleGoogleCallback
+    - Add response validation to ensure tokenResponse.data.access_token exists before using
+    - Wrap axios calls in try-catch with specific error messages for token exchange and profile retrieval
+    - Add logging for token exchange request/response to debug failures
+    - Verify URLSearchParams format for token exchange request is correct
+    - _Bug_Condition: isBugCondition(input) where input.type == "GOOGLE_OAUTH_CALLBACK" AND input.authorizationCode IS_VALID AND callbackFails(input)_
+    - _Expected_Behavior: expectedBehavior(result) from design - successful OAuth callback with token exchange (2.6, 2.7)_
+    - _Preservation: OAuth user not in DB behavior unchanged (3.8), OAuth user in DB behavior unchanged (3.9), missing OAuth config error unchanged (3.10)_
+    - _Requirements: 1.6, 1.7, 2.6, 2.7, 3.8, 3.9, 3.10_
+
+  - [ ] 3.4 Verify database seeding (backend/prisma/seed.ts)
+    - Verify seed script creates all users from YOUR_CREDENTIALS.md
+    - Ensure passwords are hashed with bcrypt using SALT_ROUNDS=10
+    - Add console.log statements to confirm users are created successfully
+    - Run seed script and verify users exist in database with proper password hashes
+    - _Requirements: 1.4, 1.5, 2.4, 2.5_
+
+  - [ ] 3.5 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Authentication Success Across All Fixed Scenarios
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify all scenarios pass:
+      - Password field text is visible with sufficient contrast
+      - Eye icon toggles password visibility correctly
+      - Eye icon has adequate spacing without text overlap
+      - Valid credentials authenticate successfully and return tokens
+      - Google OAuth callback completes successfully with valid code
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7_
+
+  - [ ] 3.6 Verify preservation tests still pass
+    - **Property 2: Preservation** - Non-Buggy Authentication Behavior Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all preservation scenarios still pass:
+      - Invalid credentials return appropriate error
+      - OAuth-only account returns appropriate error
+      - Missing OAuth config throws appropriate error
+      - Token generation works correctly
+      - Email input styling unchanged
+      - Form submission behavior unchanged
+      - Navigation links work correctly
+      - OAuth user flows work correctly
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
+
+- [ ] 4. Checkpoint - Ensure all tests pass
+  - Run all exploration tests and verify they pass (bug is fixed)
+  - Run all preservation tests and verify they pass (no regressions)
+  - Run full authentication integration tests (login flow, OAuth flow, error handling)
+  - Verify manual testing scenarios:
+    - Type password and see visible text
+    - Click eye icon and see password toggle
+    - Login with admin@srmist.edu.in / admin123 successfully
+    - Complete Google OAuth flow successfully
+  - Ask the user if questions arise or if additional testing is needed

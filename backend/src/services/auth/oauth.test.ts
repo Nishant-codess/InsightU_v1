@@ -1,11 +1,11 @@
 import { initiateGoogleOAuth, handleGoogleCallback, setPrismaInstance } from './oauth';
 import { UserRole } from './jwt';
 
-// Mock Prisma
-jest.mock('@prisma/client');
+// Mock axios at the top level before importing oauth
+jest.mock('axios');
 
-// Mock fetch for OAuth token exchange
-global.fetch = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mockAxios = require('axios');
 
 describe('OAuth Service', () => {
   let mockPrisma: any;
@@ -18,17 +18,20 @@ describe('OAuth Service', () => {
         create: jest.fn(),
       },
     };
-    
-    // Set the mock instance
+
     setPrismaInstance(mockPrisma as any);
     jest.clearAllMocks();
-    
+
     // Set up environment variables
     process.env.GOOGLE_CLIENT_ID = 'test-client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
     process.env.GOOGLE_CALLBACK_URL = 'http://localhost:3000/api/auth/google/callback';
     process.env.JWT_SECRET = 'test-jwt-secret';
     process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret';
+
+    // Setup axios mocks
+    mockAxios.post = jest.fn();
+    mockAxios.get = jest.fn();
   });
 
   afterEach(() => {
@@ -73,68 +76,40 @@ describe('OAuth Service', () => {
     const mockUserId = 'user-123';
 
     beforeEach(() => {
-      // Mock successful token exchange
-      (global.fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url.includes('oauth2.googleapis.com/token')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ access_token: mockAccessToken }),
-          });
-        }
-        if (url.includes('www.googleapis.com/oauth2/v2/userinfo')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                email: mockEmail,
-                name: mockName,
-              }),
-          });
-        }
-        return Promise.reject(new Error('Unknown URL'));
+      // Mock successful token exchange via axios
+      (mockAxios.post as jest.Mock).mockResolvedValue({
+        data: { access_token: mockAccessToken },
+      });
+      (mockAxios.get as jest.Mock).mockResolvedValue({
+        data: { email: mockEmail, name: mockName },
       });
     });
 
-    it('should create a new user if user does not exist', async () => {
+    it('should return needsProfile when user does not exist', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue({
-        id: mockUserId,
-        email: mockEmail,
-        role: 'STUDENT',
-      });
 
       const result = await handleGoogleCallback(mockCode);
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: mockEmail },
-      });
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: {
-          email: mockEmail,
-          role: 'STUDENT',
-        },
-      });
-      expect(result.user.email).toBe(mockEmail);
-      expect(result.user.role).toBe(UserRole.STUDENT);
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
+      expect(result.needsProfile).toBe(true);
+      expect(result.profile?.email).toBe(mockEmail);
+      expect(result.profile?.name).toBe(mockName);
     });
 
-    it('should return existing user if user already exists', async () => {
+    it('should return existing user with tokens if user already exists', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: mockUserId,
         email: mockEmail,
         role: 'TEACHER',
+        student: null,
+        teacher: { name: mockName },
+        parent: null,
+        admin: null,
       });
 
       const result = await handleGoogleCallback(mockCode);
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: mockEmail },
-      });
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
-      expect(result.user.email).toBe(mockEmail);
-      expect(result.user.role).toBe(UserRole.TEACHER);
+      expect(result.user!.email).toBe(mockEmail);
+      expect(result.user!.role).toBe(UserRole.TEACHER);
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
     });
@@ -146,62 +121,34 @@ describe('OAuth Service', () => {
     });
 
     it('should throw error if token exchange fails', async () => {
-      (global.fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url.includes('oauth2.googleapis.com/token')) {
-          return Promise.resolve({
-            ok: false,
-            json: () => Promise.resolve({ error: 'invalid_grant' }),
-          });
-        }
-        return Promise.reject(new Error('Unknown URL'));
-      });
+      (mockAxios.post as jest.Mock).mockRejectedValue(
+        new Error('Request failed with status code 400')
+      );
 
       await expect(handleGoogleCallback(mockCode)).rejects.toThrow(
-        'Failed to exchange authorization code for token'
+        'OAuth callback failed'
       );
     });
 
     it('should throw error if user profile fetch fails', async () => {
-      (global.fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url.includes('oauth2.googleapis.com/token')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ access_token: mockAccessToken }),
-          });
-        }
-        if (url.includes('www.googleapis.com/oauth2/v2/userinfo')) {
-          return Promise.resolve({
-            ok: false,
-            json: () => Promise.resolve({ error: 'invalid_token' }),
-          });
-        }
-        return Promise.reject(new Error('Unknown URL'));
+      (mockAxios.post as jest.Mock).mockResolvedValue({
+        data: { access_token: mockAccessToken },
       });
+      (mockAxios.get as jest.Mock).mockRejectedValue(
+        new Error('Request failed with status code 401')
+      );
 
       await expect(handleGoogleCallback(mockCode)).rejects.toThrow(
-        'Failed to fetch user profile from Google'
+        'OAuth callback failed'
       );
     });
 
     it('should throw error if no email in Google profile', async () => {
-      (global.fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url.includes('oauth2.googleapis.com/token')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ access_token: mockAccessToken }),
-          });
-        }
-        if (url.includes('www.googleapis.com/oauth2/v2/userinfo')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                name: mockName,
-                // No email
-              }),
-          });
-        }
-        return Promise.reject(new Error('Unknown URL'));
+      (mockAxios.post as jest.Mock).mockResolvedValue({
+        data: { access_token: mockAccessToken },
+      });
+      (mockAxios.get as jest.Mock).mockResolvedValue({
+        data: { name: mockName }, // No email
       });
 
       await expect(handleGoogleCallback(mockCode)).rejects.toThrow(
@@ -209,16 +156,20 @@ describe('OAuth Service', () => {
       );
     });
 
-    it('should include user name in the result', async () => {
+    it('should include user name in the result for existing users', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: mockUserId,
         email: mockEmail,
         role: 'STUDENT',
+        student: { name: mockName },
+        teacher: null,
+        parent: null,
+        admin: null,
       });
 
       const result = await handleGoogleCallback(mockCode);
 
-      expect(result.user.name).toBe(mockName);
+      expect(result.user!.name).toBe(mockName);
     });
 
     it('should throw error if OAuth credentials are not configured', async () => {

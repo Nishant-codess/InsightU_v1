@@ -57,11 +57,14 @@ export async function uploadAssignmentMarks(assignmentId: string, marks: Assignm
   const assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
   if (!assignment) throw new Error('Assignment not found');
 
-  const performanceEntries = marks.map((mark) => {
+  // Validate all marks first before creating any performance entries
+  for (const mark of marks) {
     if (mark.score > assignment.maxMarks || mark.score < 0) {
       throw new Error(`Score ${mark.score} for student ${mark.studentId} is out of bounds (Max: ${assignment.maxMarks})`);
     }
+  }
 
+  const performanceEntries = marks.map((mark) => {
     return {
       studentId: mark.studentId,
       subject: assignment.subject,

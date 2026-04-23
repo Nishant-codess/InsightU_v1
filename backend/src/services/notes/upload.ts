@@ -1,6 +1,8 @@
 import multer from 'multer';
 
 import prisma from '../../config/database';
+import { storeFile } from './storage';
+import { notifyCourseStudentsAboutNote } from '../notifications/notifications';
 
 export interface NoteMetadata {
   teacherId: string;
@@ -11,30 +13,36 @@ export interface NoteMetadata {
   lectureDate: Date;
 }
 
-// Memory storage for testing/development (in production this would be S3 or disk storage)
-const storage = multer.memoryStorage();
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
 
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimeTypes = [
-    'application/pdf',
-    'image/jpeg',
-    'image/png',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  ];
-
-  if (allowedMimeTypes.includes(file.mimetype)) {
+export const fileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+): void => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only PDF, JPEG, PNG, and PPT/PPTX are allowed.'));
+    cb(new Error('Invalid file type. Only PDF, images (JPEG, PNG, GIF, WebP), and PPT/PPTX are allowed.'));
   }
 };
+
+// Memory storage — file is buffered then handed off to the storage abstraction
+const storage = multer.memoryStorage();
 
 export const uploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB limit
+    fileSize: 50 * 1024 * 1024, // 50 MB
   },
 });
 
@@ -43,8 +51,12 @@ export async function uploadNote(metadata: NoteMetadata, file: Express.Multer.Fi
     throw new Error('Missing required metadata: subject, topic, title, and lectureDate are required');
   }
 
-  // Simulate storing file and getting URL (e.g. from S3)
-  const fileUrl = `https://storage.insightu.dev/notes/${Date.now()}_${file.originalname}`;
+  // Persist the file via the storage abstraction (local disk or S3)
+  const { fileUrl } = await storeFile(
+    file.buffer ?? Buffer.alloc(0),
+    file.originalname,
+    file.mimetype
+  );
 
   const note = await prisma.lectureNote.create({
     data: {
@@ -58,6 +70,13 @@ export async function uploadNote(metadata: NoteMetadata, file: Express.Multer.Fi
       lectureDate: metadata.lectureDate,
     },
   });
+
+  // Notify relevant students about the new note — fire-and-forget, never breaks upload
+  try {
+    await notifyCourseStudentsAboutNote(metadata.teacherId, metadata.subject, '/notes/' + note.id);
+  } catch (err) {
+    console.error('[notifications] Failed to send note upload notifications:', err);
+  }
 
   return note;
 }

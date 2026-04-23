@@ -34,7 +34,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
-.kiro/
 
 # Prisma
 backend/prisma/migrations/

@@ -12,6 +12,7 @@ jest.mock('../../config/database', () => {
         create: jest.fn(async ({ data }) => {
           return { id: `quiz-${Date.now()}`, ...data };
         }),
+        findUnique: jest.fn(async () => null),
       },
       quizSession: {
         create: jest.fn(async ({ data }) => {
@@ -52,6 +53,7 @@ describe('Feature: insightu-platform, Quiz Core functionality', () => {
     await fc.assert(
       fc.asyncProperty(
         fc.uuid(),
+        fc.uuid(),
         fc.string({ minLength: 1 }),
         fc.string({ minLength: 1 }),
         fc.integer({ min: 10, max: 60 }),
@@ -60,18 +62,18 @@ describe('Feature: insightu-platform, Quiz Core functionality', () => {
             question: fc.string(),
             options: fc.array(fc.string(), { minLength: 0, maxLength: 5 }), // intentionally sometimes invalid (< 2)
             correctAnswerIndex: fc.integer({ min: -1, max: 5 }), // intentionally sometimes invalid bounds
-            topicTags: fc.array(fc.string())
+            topicTags: fc.array(fc.string(), { minLength: 0, maxLength: 3 }) // intentionally sometimes empty
           }), { minLength: 0, maxLength: 3 } // Intentionally 0 tested
         ),
-        async (teacherId, title, subject, timeMs, questions) => {
+        async (teacherId, authorId, title, subject, timeMs, questions) => {
           const data: QuizData = {
-            teacherId, title, subject, timePerQuestion: timeMs,
+            teacherId, authorId, title, subject, timePerQuestion: timeMs,
             questions: questions as QuizQuestion[]
           };
 
           const isQuestionsPresent = questions.length > 0;
           const isEachQValid = questions.every(q => 
-            q.question && q.options.length >= 2 && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length
+            q.question && q.options.length >= 2 && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length && q.topicTags.length > 0
           );
 
           try {
@@ -82,10 +84,11 @@ describe('Feature: insightu-platform, Quiz Core functionality', () => {
             if (!isQuestionsPresent) {
               expect(e.message).toContain('At least one question is required');
             } else if (!isEachQValid) {
-               // Either question lacking, options length issue, or bounds error
+               // Either question lacking, options length issue, bounds error, or missing topic tags
                expect(
                  e.message.includes('must have the text and at least 2 options') ||
-                 e.message.includes('Correct answer index is out of bounds')
+                 e.message.includes('Correct answer index is out of bounds') ||
+                 e.message.includes('at least one topic tag')
                ).toBe(true);
             } else {
               throw e;
