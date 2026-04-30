@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     format, 
@@ -23,7 +23,7 @@ export default function CalendarOverview({ onDateSelect, selectedDate }: Calenda
     const { token } = useAuthStore();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [calendarData, setCalendarData] = useState<Record<string, any>>({});
-    const [loading, setLoading] = useState(false);
+    const [, setLoading] = useState(false);
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);

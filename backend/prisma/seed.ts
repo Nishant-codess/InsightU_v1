@@ -28,8 +28,6 @@ async function main() {
   await prisma.unifiedSlot.deleteMany();
   await prisma.calendarDay.deleteMany();
   
-  await prisma.notification.deleteMany();
-  await prisma.notificationPreferences.deleteMany();
   await prisma.academicHealth.deleteMany();
   await prisma.studentPerformance.deleteMany();
   await prisma.studentExamMarks.deleteMany();
@@ -44,12 +42,16 @@ async function main() {
   await prisma.refreshToken.deleteMany();
   await prisma.session.deleteMany();
   await prisma.aIProviderConfig.deleteMany();
+  await prisma.classroomMember.deleteMany();
+  await prisma.classroomPost.deleteMany();
+  await prisma.classroom.deleteMany();
+  await prisma.whiteboardMember.deleteMany();
+  await prisma.whiteboard.deleteMany();
   await prisma.student.deleteMany();
   await prisma.teacher.deleteMany();
   await prisma.admin.deleteMany();
   await prisma.user.deleteMany();
   await prisma.timetable.deleteMany();
-  await prisma.academicCalendar.deleteMany();
   await prisma.sectionTimetable.deleteMany();
 
   console.log('Cleaned all existing data');

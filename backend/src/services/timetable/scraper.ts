@@ -81,7 +81,7 @@ export function splitSlot(slot: string): string[] {
  * Expected columns (order may vary; we match by header text):
  *   Registration Number | Name | Program | Department | Semester | Batch
  */
-function parseProfileTable($: cheerio.CheerioAPI, table: cheerio.Cheerio<cheerio.Element>): StudentProfile {
+function parseProfileTable($: cheerio.CheerioAPI, table: cheerio.Cheerio<any>): StudentProfile {
   // Build a header→index map from the first <tr>
   const headerMap: Record<string, number> = {};
   table.find('tr').first().find('th, td').each((i, el) => {
@@ -137,7 +137,7 @@ function parseProfileTable($: cheerio.CheerioAPI, table: cheerio.Cheerio<cheerio
  *
  * Expected columns: Course Code | Course Title | Faculty Name | Slot | Room No
  */
-function parseSlotTable($: cheerio.CheerioAPI, table: cheerio.Cheerio<cheerio.Element>): PersonalSlotRow[] {
+function parseSlotTable($: cheerio.CheerioAPI, table: cheerio.Cheerio<any>): PersonalSlotRow[] {
   // Build header→index map
   const headerMap: Record<string, number> = {};
   table.find('tr').first().find('th, td').each((i, el) => {

@@ -2,7 +2,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from './PageTransition';
-import { BookOpenIcon, ChartBarIcon, BellIcon, UserIcon, ArrowRightOnRectangleIcon, UserGroupIcon, CalendarDaysIcon, Cog6ToothIcon, ClipboardDocumentListIcon, AcademicCapIcon, PresentationChartBarIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ChartBarIcon, UserIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, PresentationChartBarIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import ThemeSwitcher from '../ui/ThemeSwitcher';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,17 +21,11 @@ export default function DashboardLayout() {
    }
 
    const NavItems = [
-       { id: 'dash',         label: 'Dashboard',      path: '/dashboard',         icon: ChartBarIcon,              match: ['STUDENT', 'TEACHER', 'PARENT', 'ADMIN'] },
-       { id: 'timetable',    label: 'Timetable',       path: '/timetable',         icon: CalendarDaysIcon,          match: ['STUDENT'] },
-       { id: 'academic',     label: 'Marks & Attend.', path: '/academic-data',     icon: AcademicCapIcon,           match: ['STUDENT'] },
-       { id: 'section',      label: 'My Section',      path: '/section',           icon: UserGroupIcon,             match: ['STUDENT', 'TEACHER'] },
-       { id: 'classroom',    label: 'Classrooms',      path: '/classroom',         icon: PresentationChartBarIcon,  match: ['TEACHER'] },
-       { id: 'my-classrooms',label: 'Classrooms',      path: '/my-classrooms',     icon: PresentationChartBarIcon,  match: ['STUDENT'] },
-       { id: 'notes',        label: 'Lecture Notes',   path: '/notes',             icon: BookOpenIcon,              match: ['STUDENT', 'TEACHER'] },
-       { id: 'mock-tests',   label: 'Mock Tests',      path: '/mock-tests/create', icon: ClipboardDocumentListIcon, match: ['STUDENT', 'TEACHER'] },
-       { id: 'notifications',label: 'Notifications',   path: '/notifications',     icon: BellIcon,                  match: ['STUDENT', 'TEACHER', 'PARENT'] },
-       { id: 'profile',      label: 'Profile & AI',    path: '/profile',           icon: Cog6ToothIcon,             match: ['STUDENT', 'TEACHER', 'PARENT', 'ADMIN'] },
-   ].filter(item => item.match.includes(user.role));
+       { id: 'dash',      label: 'Dashboard',   path: '/dashboard',  icon: ChartBarIcon,             },
+       { id: 'classroom', label: 'Classrooms',  path: '/classroom',  icon: PresentationChartBarIcon, },
+       { id: 'whiteboard',label: 'Whiteboard',  path: '/whiteboard', icon: BookOpenIcon,             },
+       { id: 'profile',   label: 'Profile',     path: '/profile',    icon: Cog6ToothIcon,            },
+   ];
 
    return (
        <div className="min-h-screen bg-background text-textLight flex relative">

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { 
   UserCircleIcon, 
@@ -6,69 +5,11 @@ import {
   IdentificationIcon,
   EnvelopeIcon,
   ShieldCheckIcon,
-  CpuChipIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
-
-type AIProvider = 'OPENAI' | 'GEMINI' | 'CUSTOM';
-
-interface AIConfig {
-  configured: boolean;
-  provider?: AIProvider;
-  baseUrl?: string | null;
-  hasApiKey?: boolean;
-}
 
 export default function Profile() {
-  const { user, token } = useAuthStore();
-
-  // AI config state
-  const [aiConfig, setAiConfig] = useState<AIConfig>({ configured: false });
-  const [aiProvider, setAiProvider] = useState<AIProvider>('OPENAI');
-  const [aiApiKey, setAiApiKey] = useState('');
-  const [aiBaseUrl, setAiBaseUrl] = useState('');
-  const [aiSaving, setAiSaving] = useState(false);
-  const [aiMsg, setAiMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    fetch(`${API}/api/user/ai-config`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data: AIConfig) => {
-        setAiConfig(data);
-        if (data.provider) setAiProvider(data.provider);
-        if (data.baseUrl) setAiBaseUrl(data.baseUrl);
-      })
-      .catch(() => {});
-  }, [token]);
-
-  const handleSaveAI = async () => {
-    if (!aiApiKey.trim()) { setAiMsg({ type: 'error', text: 'API key is required' }); return; }
-    setAiSaving(true);
-    setAiMsg(null);
-    try {
-      const res = await fetch(`${API}/api/user/ai-config`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ provider: aiProvider, apiKey: aiApiKey, baseUrl: aiBaseUrl || undefined }),
-      });
-      if (!res.ok) throw new Error('Failed to save');
-      setAiConfig({ configured: true, provider: aiProvider, baseUrl: aiBaseUrl || null, hasApiKey: true });
-      setAiApiKey('');
-      setAiMsg({ type: 'success', text: 'AI provider saved successfully' });
-    } catch {
-      setAiMsg({ type: 'error', text: 'Failed to save AI provider config' });
-    } finally {
-      setAiSaving(false);
-    }
-  };
+  const { user } = useAuthStore();
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -155,84 +96,6 @@ export default function Profile() {
           <Button variant="outline" className="text-red-400 hover:text-red-300 hover:border-red-400/50">
               Sign Out from all devices
           </Button>
-      </div>
-
-      {/* AI Provider Settings */}
-      <div className="glass-card p-6 space-y-5">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-          <CpuChipIcon className="w-5 h-5 text-brand" />
-          AI Provider Settings
-        </h2>
-        <p className="text-sm text-textLight">
-          Configure your AI API key to use the mock test generator. Your key is encrypted at rest and never shared.
-        </p>
-
-        {aiConfig.configured && (
-          <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-            <CheckCircleIcon className="w-4 h-4" />
-            <span>
-              {aiConfig.provider} configured
-              {aiConfig.baseUrl ? ` · ${aiConfig.baseUrl}` : ''}
-            </span>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <span className="text-sm text-textLight">Provider</span>
-          <div className="flex gap-2">
-            {(['OPENAI', 'GEMINI', 'CUSTOM'] as AIProvider[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setAiProvider(p)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  aiProvider === p
-                    ? 'bg-brand/20 border-brand/50 text-brand'
-                    : 'bg-surface/50 border-white/10 text-textLight hover:border-white/20'
-                }`}
-              >
-                {p === 'OPENAI' ? 'OpenAI' : p === 'GEMINI' ? 'Gemini' : 'Custom'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <Input
-          label="API Key"
-          type="password"
-          placeholder={aiConfig.configured ? '••••••••••••••••' : 'sk-...'}
-          value={aiApiKey}
-          onChange={(e) => setAiApiKey(e.target.value)}
-        />
-
-        {aiProvider === 'CUSTOM' && (
-          <Input
-            label="Base URL (OpenAI-compatible endpoint)"
-            placeholder="https://your-endpoint.com/v1"
-            value={aiBaseUrl}
-            onChange={(e) => setAiBaseUrl(e.target.value)}
-          />
-        )}
-
-        {aiMsg && (
-          <div
-            className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
-              aiMsg.type === 'success'
-                ? 'bg-green-500/10 border border-green-500/20 text-green-400'
-                : 'bg-red-500/10 border border-red-500/20 text-red-400'
-            }`}
-          >
-            {aiMsg.type === 'success' ? (
-              <CheckCircleIcon className="w-4 h-4" />
-            ) : (
-              <ExclamationTriangleIcon className="w-4 h-4" />
-            )}
-            {aiMsg.text}
-          </div>
-        )}
-
-        <Button onClick={handleSaveAI} isLoading={aiSaving} className="w-full">
-          Save AI Provider
-        </Button>
       </div>
 
     </div>

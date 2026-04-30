@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
-  PlusIcon, UserGroupIcon, PencilSquareIcon, CheckIcon, XMarkIcon,
+  PlusIcon, UserGroupIcon, CheckIcon, XMarkIcon,
   ClipboardDocumentIcon, LinkIcon,
 } from '@heroicons/react/24/outline';
 

@@ -7,12 +7,12 @@ Logs into SRM portal and fetches timetable data
 import sys
 import json
 import time
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 class SRMPortalScraper:
@@ -20,12 +20,13 @@ class SRMPortalScraper:
         """Initialize the scraper with Chrome options"""
         self.options = Options()
         if headless:
-            self.options.add_argument('--headless')
+            self.options.add_argument('--headless=new')  # Use new headless mode
         self.options.add_argument('--no-sandbox')
         self.options.add_argument('--disable-dev-shm-usage')
         self.options.add_argument('--disable-gpu')
         self.options.add_argument('--window-size=1920,1080')
         self.options.add_argument('--disable-blink-features=AutomationControlled')
+        self.options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         self.options.add_experimental_option("excludeSwitches", ["enable-automation"])
         self.options.add_experimental_option('useAutomationExtension', False)
         
@@ -33,9 +34,21 @@ class SRMPortalScraper:
         self.wait = None
         
     def start(self):
-        """Start the browser"""
+        """Start the browser using Brave with matching ChromeDriver"""
         try:
-            self.driver = webdriver.Chrome(options=self.options)
+            from selenium.webdriver.chrome.service import Service
+            import os
+
+            brave_path = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+            self.options.binary_location = brave_path
+
+            # Use ChromeDriver 147 matching Brave 147
+            chromedriver_path = os.path.join(
+                os.environ.get('USERPROFILE', ''),
+                'chromedriver147', 'chromedriver-win64', 'chromedriver.exe'
+            )
+            service = Service(chromedriver_path)
+            self.driver = webdriver.Chrome(service=service, options=self.options)
             self.wait = WebDriverWait(self.driver, 20)
             return True
         except Exception as e:
@@ -46,15 +59,25 @@ class SRMPortalScraper:
         try:
             # Navigate to portal
             self.driver.get('https://academia.srmist.edu.in/')
-            time.sleep(2)
+            time.sleep(3)
+            
+            # Save page source for debugging
+            page_html = self.driver.page_source
             
             # Try multiple possible selectors for username field
             username_selectors = [
                 'input[name="username"]',
+                'input[name="email"]',
                 'input[type="email"]',
                 'input#login_id',
+                'input#username',
+                'input#email',
                 'input[placeholder*="mail"]',
-                'input[placeholder*="User"]'
+                'input[placeholder*="Mail"]',
+                'input[placeholder*="User"]',
+                'input[placeholder*="user"]',
+                'input.form-control[type="text"]',
+                'input[type="text"]'
             ]
             
             username_field = None
@@ -63,12 +86,14 @@ class SRMPortalScraper:
                     username_field = self.wait.until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
-                    break
-                except TimeoutException:
+                    if username_field.is_displayed():
+                        break
+                except (TimeoutException, NoSuchElementException):
                     continue
             
             if not username_field:
-                return {"error": "Login form not found. Portal structure may have changed."}
+                # Return page HTML for debugging
+                return {"error": "Login form not found. Portal structure may have changed.", "page_html_length": len(page_html)}
             
             # Enter email
             username_field.clear()
@@ -77,9 +102,9 @@ class SRMPortalScraper:
             
             # Check if there's a "Next" button (two-step login)
             try:
-                next_button = self.driver.find_element(By.CSS_SELECTOR, 'button#nextbtn, button[type="submit"]#nextbtn')
+                next_button = self.driver.find_element(By.CSS_SELECTOR, 'button#nextbtn, button[type="submit"]#nextbtn, button:contains("Next")')
                 next_button.click()
-                time.sleep(1.5)
+                time.sleep(2)
             except NoSuchElementException:
                 pass
             
@@ -87,7 +112,8 @@ class SRMPortalScraper:
             password_selectors = [
                 'input[name="password"]',
                 'input[type="password"]',
-                'input#password'
+                'input#password',
+                'input.form-control[type="password"]'
             ]
             
             password_field = None
@@ -96,8 +122,9 @@ class SRMPortalScraper:
                     password_field = self.wait.until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
-                    break
-                except TimeoutException:
+                    if password_field.is_displayed():
+                        break
+                except (TimeoutException, NoSuchElementException):
                     continue
             
             if not password_field:
@@ -113,14 +140,17 @@ class SRMPortalScraper:
                 'button[type="submit"]',
                 'input[type="submit"]',
                 'button#signin_submit',
-                'button.btn-primary'
+                'button.btn-primary',
+                'button.btn',
+                'input.btn-primary'
             ]
             
             submit_button = None
             for selector in submit_selectors:
                 try:
                     submit_button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    break
+                    if submit_button.is_displayed():
+                        break
                 except NoSuchElementException:
                     continue
             
@@ -128,7 +158,7 @@ class SRMPortalScraper:
                 return {"error": "Submit button not found. Portal structure may have changed."}
             
             submit_button.click()
-            time.sleep(3)
+            time.sleep(4)
             
             # Check if login was successful
             current_url = self.driver.current_url
@@ -139,7 +169,7 @@ class SRMPortalScraper:
                     return {"error": "Invalid credentials. Please check your email and password."}
                 return {"error": "Login failed. Please try again."}
             
-            return {"success": True, "message": "Login successful"}
+            return {"success": True, "message": "Login successful", "url": current_url}
             
         except TimeoutException:
             return {"error": "Timeout waiting for page elements. Portal may be slow or down."}
@@ -192,6 +222,7 @@ def main():
     email = sys.argv[1]
     password = sys.argv[2]
     
+    # Run in headless mode for production
     scraper = SRMPortalScraper(headless=True)
     
     try:
@@ -218,6 +249,8 @@ def main():
         print(json.dumps({"error": f"Unexpected error: {str(e)}"}))
         sys.exit(1)
     finally:
+        # Keep browser open for 5 seconds to see what happened
+        time.sleep(5)
         scraper.close()
 
 if __name__ == "__main__":

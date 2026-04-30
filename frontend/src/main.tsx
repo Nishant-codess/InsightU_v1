@@ -7,10 +7,10 @@ import { THEMES } from './context/themes';
 import { useAuthStore } from './store/useAuthStore';
 
 function Root() {
-  const { user, token } = useAuthStore();
+  const { user } = useAuthStore();
 
   return (
-    <ThemeProvider themes={THEMES} userRole={user?.role} token={token}>
+    <ThemeProvider themes={THEMES} userRole={user?.role}>
       <App />
     </ThemeProvider>
   );

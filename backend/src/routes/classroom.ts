@@ -1,162 +1,549 @@
 import { Router, Response } from 'express';
+import multer from 'multer';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import prisma from '../config/database';
-import crypto from 'crypto';
+import {
+  createClassroom,
+  getTeacherClassrooms,
+  getClassroomDetails,
+  requestJoinClassroom,
+  updateMemberStatus,
+  getPendingRequests,
+  createClassroomPost,
+  getClassroomPosts,
+  deleteClassroomPost,
+  getStudentClassrooms,
+  deleteClassroom,
+} from '../services/classroom/classroom';
+import {
+  createWhiteboard,
+  getTeacherWhiteboards,
+  getWhiteboardDetails,
+  requestJoinWhiteboard,
+  updateWhiteboardMemberStatus,
+  getPendingWhiteboardRequests,
+  updateWhiteboardContent,
+  getStudentWhiteboards,
+  deleteWhiteboard,
+} from '../services/whiteboard/whiteboard';
 
 const router = Router();
 
-// ─── Teacher: Create Classroom ────────────────────────────────────────────────
+// Configure multer for file uploads (memory storage for Supabase)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    // Allow images, PDFs, and documents
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images, PDFs, and documents are allowed.'));
+    }
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLASSROOM ROUTES (GCR-style)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/classroom
+ * Teacher creates a new classroom
+ */
 router.post('/', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
     const userId = req.userAuth?.userId;
-    const { name, subject } = req.body;
-    if (!name || !subject) return res.status(400).json({ error: 'name and subject required' });
+    const { name, subject, description } = req.body;
+
+    if (!name || !subject) {
+      return res.status(400).json({ error: 'Name and subject are required' });
+    }
 
     const teacher = await prisma.teacher.findUnique({ where: { userId } });
-    if (!teacher) return res.status(403).json({ error: 'Teacher profile not found' });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher profile not found' });
+    }
 
-    const inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase(); // e.g. "A3F9B2C1"
-
-    const classroom = await prisma.classroom.create({
-      data: { teacherId: teacher.id, name, subject, inviteCode },
-    });
+    const classroom = await createClassroom(teacher.id, name, subject, description);
 
     return res.status(201).json({ classroom });
-  } catch (e) { return next(e); }
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Teacher: Get My Classrooms ───────────────────────────────────────────────
-router.get('/mine', authenticate, async (req: AuthRequest, res: Response, next) => {
+/**
+ * GET /api/classroom/teacher
+ * Get all classrooms for logged-in teacher
+ */
+router.get('/teacher', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const teacher = await prisma.teacher.findUnique({ where: { userId: req.userAuth?.userId } });
-    if (!teacher) return res.status(403).json({ error: 'Teacher only' });
-
-    const classrooms = await prisma.classroom.findMany({
-      where: { teacherId: teacher.id, isActive: true },
-      include: {
-        members: { include: { student: { select: { name: true, registrationNumber: true } } } },
-        sketchBoards: { select: { id: true, title: true, isLive: true, shareToken: true, updatedAt: true } },
-      },
-      orderBy: { createdAt: 'desc' },
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
     });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const classrooms = await getTeacherClassrooms(teacher.id);
 
     return res.status(200).json({ classrooms });
-  } catch (e) { return next(e); }
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Teacher: Approve / Reject Member ────────────────────────────────────────
-router.patch('/:classroomId/members/:memberId', authenticate, async (req: AuthRequest, res: Response, next) => {
+/**
+ * GET /api/classroom/:classroomId
+ * Get classroom details with members and posts
+ */
+router.get('/:classroomId', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const teacher = await prisma.teacher.findUnique({ where: { userId: req.userAuth?.userId } });
-    if (!teacher) return res.status(403).json({ error: 'Teacher only' });
+    const userId = req.userAuth?.userId!;
+    const { classroomId } = req.params;
 
-    const { status } = req.body; // APPROVED | REJECTED
-    if (!['APPROVED', 'REJECTED'].includes(status)) return res.status(400).json({ error: 'status must be APPROVED or REJECTED' });
+    const result = await getClassroomDetails(classroomId, userId);
 
-    const member = await prisma.classroomMember.update({
-      where: { id: req.params.memberId },
-      data: { status },
-    });
-
-    return res.status(200).json({ member });
-  } catch (e) { return next(e); }
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Student: Join Classroom by Invite Code ───────────────────────────────────
+/**
+ * POST /api/classroom/join
+ * Student requests to join classroom with invite code
+ */
 router.post('/join', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const student = await prisma.student.findUnique({ where: { userId: req.userAuth?.userId } });
-    if (!student) return res.status(403).json({ error: 'Student only' });
+    const student = await prisma.student.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!student) {
+      return res.status(403).json({ error: 'Student only' });
+    }
 
     const { inviteCode } = req.body;
-    if (!inviteCode) return res.status(400).json({ error: 'inviteCode required' });
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Invite code is required' });
+    }
 
-    const classroom = await prisma.classroom.findUnique({ where: { inviteCode: inviteCode.toUpperCase() } });
-    if (!classroom || !classroom.isActive) return res.status(404).json({ error: 'Invalid or inactive invite code' });
+    const member = await requestJoinClassroom(student.id, inviteCode.toUpperCase());
 
-    // Check already member
-    const existing = await prisma.classroomMember.findUnique({
-      where: { classroomId_studentId: { classroomId: classroom.id, studentId: student.id } },
+    return res.status(201).json({
+      message: 'Join request sent. Waiting for teacher approval.',
+      member,
     });
-    if (existing) return res.status(200).json({ message: `Already ${existing.status.toLowerCase()}`, member: existing });
-
-    const member = await prisma.classroomMember.create({
-      data: { classroomId: classroom.id, studentId: student.id, status: 'PENDING' },
-    });
-
-    return res.status(201).json({ message: 'Join request sent. Waiting for teacher approval.', member });
-  } catch (e) { return next(e); }
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Student: Get My Classrooms ───────────────────────────────────────────────
-router.get('/student/mine', authenticate, async (req: AuthRequest, res: Response, next) => {
+/**
+ * GET /api/classroom/:classroomId/requests
+ * Teacher gets pending join requests
+ */
+router.get('/:classroomId/requests', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const student = await prisma.student.findUnique({ where: { userId: req.userAuth?.userId } });
-    if (!student) return res.status(403).json({ error: 'Student only' });
-
-    const memberships = await prisma.classroomMember.findMany({
-      where: { studentId: student.id },
-      include: {
-        classroom: {
-          include: {
-            teacher: { select: { name: true } },
-            sketchBoards: {
-              where: { isLive: true },
-              select: { id: true, title: true, shareToken: true },
-            },
-          },
-        },
-      },
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
     });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
 
-    return res.status(200).json({ memberships });
-  } catch (e) { return next(e); }
+    const requests = await getPendingRequests(req.params.classroomId, teacher.id);
+
+    return res.status(200).json({ requests });
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Teacher: Create Sketch Board ────────────────────────────────────────────
-router.post('/:classroomId/boards', authenticate, async (req: AuthRequest, res: Response, next) => {
+/**
+ * PATCH /api/classroom/:classroomId/members/:studentId
+ * Teacher approves/rejects student join request
+ */
+router.patch('/:classroomId/members/:studentId', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const teacher = await prisma.teacher.findUnique({ where: { userId: req.userAuth?.userId } });
-    if (!teacher) return res.status(403).json({ error: 'Teacher only' });
-
-    const { title } = req.body;
-    const shareToken = crypto.randomBytes(12).toString('hex');
-
-    const board = await prisma.sketchBoard.create({
-      data: {
-        classroomId: req.params.classroomId,
-        title: title || 'Untitled Board',
-        shareToken,
-        isLive: true,
-      },
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
     });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
 
-    return res.status(201).json({ board });
-  } catch (e) { return next(e); }
+    const { status } = req.body;
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
+    }
+
+    const member = await updateMemberStatus(
+      req.params.classroomId,
+      req.params.studentId,
+      teacher.id,
+      status
+    );
+
+    return res.status(200).json({ member });
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Anyone: Get Sketch Board by shareToken ───────────────────────────────────
-router.get('/board/:shareToken', authenticate, async (req: AuthRequest, res: Response, next) => {
+/**
+ * POST /api/classroom/:classroomId/posts
+ * Teacher creates a post in classroom
+ */
+router.post('/:classroomId/posts', authenticate, upload.array('files', 5), async (req: AuthRequest, res: Response, next) => {
   try {
-    const board = await prisma.sketchBoard.findUnique({
-      where: { shareToken: req.params.shareToken },
-      include: { classroom: { select: { name: true, subject: true } } },
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+      select: { id: true, name: true },
     });
-    if (!board) return res.status(404).json({ error: 'Board not found' });
-    return res.status(200).json({ board });
-  } catch (e) { return next(e); }
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const { title, content, links } = req.body;
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+
+    // Parse links if provided
+    let parsedLinks;
+    if (links) {
+      try {
+        parsedLinks = JSON.parse(links);
+      } catch {
+        return res.status(400).json({ error: 'Invalid links format' });
+      }
+    }
+
+    // Process uploaded files
+    const files = req.files as Express.Multer.File[];
+    const fileData = files?.map((file) => ({
+      buffer: file.buffer,
+      name: file.originalname,
+      mimeType: file.mimetype,
+    }));
+
+    const post = await createClassroomPost(
+      req.params.classroomId,
+      teacher.id,
+      teacher.name,
+      content,
+      title,
+      parsedLinks,
+      fileData
+    );
+
+    return res.status(201).json({ post });
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
-// ─── Teacher: Save Board Data ─────────────────────────────────────────────────
-router.patch('/board/:shareToken', authenticate, async (req: AuthRequest, res: Response, next) => {
+/**
+ * GET /api/classroom/:classroomId/posts
+ * Get all posts for a classroom
+ */
+router.get('/:classroomId/posts', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const { data, isLive } = req.body;
-    const board = await prisma.sketchBoard.update({
-      where: { shareToken: req.params.shareToken },
-      data: { ...(data !== undefined && { data }), ...(isLive !== undefined && { isLive }) },
+    const userId = req.userAuth?.userId!;
+    const posts = await getClassroomPosts(req.params.classroomId, userId);
+
+    return res.status(200).json({ posts });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * DELETE /api/classroom/posts/:postId
+ * Teacher deletes a post
+ */
+router.delete('/posts/:postId', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
     });
-    return res.status(200).json({ board });
-  } catch (e) { return next(e); }
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    await deleteClassroomPost(req.params.postId, teacher.id);
+
+    return res.status(200).json({ message: 'Post deleted successfully' });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * GET /api/classroom/student
+ * Get all classrooms for logged-in student
+ */
+router.get('/student/classrooms', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const student = await prisma.student.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!student) {
+      return res.status(403).json({ error: 'Student only' });
+    }
+
+    const classrooms = await getStudentClassrooms(student.id);
+
+    return res.status(200).json({ classrooms });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * DELETE /api/classroom/:classroomId
+ * Teacher deletes/archives classroom
+ */
+router.delete('/:classroomId', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    await deleteClassroom(req.params.classroomId, teacher.id);
+
+    return res.status(200).json({ message: 'Classroom deleted successfully' });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WHITEBOARD ROUTES (Code Sharing)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/classroom/whiteboard
+ * Teacher creates a new whiteboard
+ */
+router.post('/whiteboard', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const { title, description, classroomId } = req.body;
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const whiteboard = await createWhiteboard(teacher.id, title, description, classroomId);
+
+    return res.status(201).json({ whiteboard });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * GET /api/classroom/whiteboard/teacher
+ * Get all whiteboards for logged-in teacher
+ */
+router.get('/whiteboard/teacher', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const whiteboards = await getTeacherWhiteboards(teacher.id);
+
+    return res.status(200).json({ whiteboards });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * GET /api/classroom/whiteboard/:whiteboardId
+ * Get whiteboard details
+ */
+router.get('/whiteboard/:whiteboardId', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const userId = req.userAuth?.userId!;
+    const result = await getWhiteboardDetails(req.params.whiteboardId, userId);
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * POST /api/classroom/whiteboard/join
+ * Student requests to join whiteboard with invite code
+ */
+router.post('/whiteboard/join', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const student = await prisma.student.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!student) {
+      return res.status(403).json({ error: 'Student only' });
+    }
+
+    const { inviteCode } = req.body;
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Invite code is required' });
+    }
+
+    const member = await requestJoinWhiteboard(student.id, inviteCode.toUpperCase());
+
+    return res.status(201).json({
+      message: 'Join request sent. Waiting for teacher approval.',
+      member,
+    });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * GET /api/classroom/whiteboard/:whiteboardId/requests
+ * Teacher gets pending join requests for whiteboard
+ */
+router.get('/whiteboard/:whiteboardId/requests', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const requests = await getPendingWhiteboardRequests(req.params.whiteboardId, teacher.id);
+
+    return res.status(200).json({ requests });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * PATCH /api/classroom/whiteboard/:whiteboardId/members/:studentId
+ * Teacher approves/rejects student join request for whiteboard
+ */
+router.patch('/whiteboard/:whiteboardId/members/:studentId', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const { status } = req.body;
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
+    }
+
+    const member = await updateWhiteboardMemberStatus(
+      req.params.whiteboardId,
+      req.params.studentId,
+      teacher.id,
+      status
+    );
+
+    return res.status(200).json({ member });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * PATCH /api/classroom/whiteboard/:whiteboardId/content
+ * Update whiteboard content (Excalidraw elements)
+ */
+router.patch('/whiteboard/:whiteboardId/content', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const userId = req.userAuth?.userId!;
+    const { content } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+
+    const whiteboard = await updateWhiteboardContent(req.params.whiteboardId, userId, content);
+
+    return res.status(200).json({ whiteboard });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * GET /api/classroom/whiteboard/student
+ * Get all whiteboards for logged-in student
+ */
+router.get('/whiteboard/student/whiteboards', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const student = await prisma.student.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!student) {
+      return res.status(403).json({ error: 'Student only' });
+    }
+
+    const whiteboards = await getStudentWhiteboards(student.id);
+
+    return res.status(200).json({ whiteboards });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * DELETE /api/classroom/whiteboard/:whiteboardId
+ * Teacher deletes/archives whiteboard
+ */
+router.delete('/whiteboard/:whiteboardId', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    await deleteWhiteboard(req.params.whiteboardId, teacher.id);
+
+    return res.status(200).json({ message: 'Whiteboard deleted successfully' });
+  } catch (error: any) {
+    return next(error);
+  }
 });
 
 export default router;

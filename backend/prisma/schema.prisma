@@ -14,37 +14,36 @@ enum UserRole {
   STUDENT
   TEACHER
   ADMIN
+  PARENT
 }
 
-enum PowerUpType {
-  FIFTY_FIFTY
-  TIME_FREEZE
-  DOUBLE_POINTS
-  SHIELD
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
-enum QuizVisibility {
-  PRIVATE
-  SHAREABLE
-}
+
 
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String?
   role         UserRole
+  srmEmail     String?  // SRM Academia email
+  srmPassword  String?  // SRM Academia password (TODO: encrypt in production)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   student       Student?
   teacher       Teacher?
   admin         Admin?
+  parent        Parent?
   sessions      Session[]
   refreshTokens RefreshToken[]
-  notifications Notification[]
-  createdQuizzes Quiz[]
 
   @@index([email])
+  @@index([srmEmail])
 }
 
 model Student {
@@ -62,39 +61,33 @@ model Student {
   group              String
   collegeMailId      String
 
-  quizParticipations QuizParticipation[]
-  noteBookmarks      NoteBookmark[]
-  noteAnnotations    NoteAnnotation[]
-  examMarks          StudentExamMarks[]
-  performances       StudentPerformance[]
-  academicHealth     AcademicHealth?
-  powerUps           PowerUp[]
-
   @@index([registrationNumber])
   @@index([year, section, batch])
   @@index([group])
 
-  personalSlots PersonalSlot[]
-  portalData    PortalData?
+  personalSlots        PersonalSlot[]
+  portalData           PortalData?
   classroomMemberships ClassroomMember[]
+  whiteboardMemberships WhiteboardMember[]
 }
 
 model Teacher {
-  id         String   @id @default(uuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name       String
-  department String
-  subjects   String[]
+  id              String          @id @default(uuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  department      String
+  subjects        String[]
+  idCardUrl       String?         // ID card image
+  approvalStatus  ApprovalStatus  @default(PENDING)
+  approvedAt      DateTime?
+  approvedBy      String?         // Admin user ID
+  rejectionReason String?
 
-  lectureNotes LectureNote[]
-  quizzes      Quiz[]
-  assignments  Assignment[]
-  exams        Exam[]
-  sectionAssignments SectionTeacher[]
   classrooms   Classroom[]
 
   @@index([department])
+  @@index([approvalStatus])
 }
 
 model Admin {
@@ -102,6 +95,25 @@ model Admin {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   name   String
+}
+
+model Parent {
+  id              String          @id @default(uuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  phone           String?
+  childSrmEmail   String          // Child's SRM email
+  childSrmPassword String         // Child's SRM password (encrypted)
+  childIdCardUrl  String?         // Child's ID card
+  approvalStatus  ApprovalStatus  @default(PENDING)
+  approvedAt      DateTime?
+  approvedBy      String?         // Admin user ID
+  rejectionReason String?
+  createdAt       DateTime        @default(now())
+
+  @@index([approvalStatus])
+  @@index([childSrmEmail])
 }
 
 model Session {
@@ -128,217 +140,7 @@ model RefreshToken {
   @@index([token])
 }
 
-model LectureNote {
-  id          String   @id @default(uuid())
-  teacherId   String
-  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject     String
-  topic       String
-  title       String
-  description String?
-  fileUrl     String
-  fileType    String
-  lectureDate DateTime
-  uploadedAt  DateTime @default(now())
 
-  bookmarks   NoteBookmark[]
-  annotations NoteAnnotation[]
-
-  @@index([subject, topic])
-  @@index([teacherId])
-  @@index([lectureDate])
-  @@index([subject, lectureDate])
-}
-
-model NoteBookmark {
-  id        String      @id @default(uuid())
-  studentId String
-  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  noteId    String
-  note      LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  createdAt DateTime    @default(now())
-
-  @@unique([studentId, noteId])
-  @@index([studentId])
-}
-
-model NoteAnnotation {
-  id        String      @id @default(uuid())
-  studentId String
-  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  noteId    String
-  note      LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  content   String
-  page      Int?
-  positionX Float?
-  positionY Float?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([studentId, noteId])
-}
-
-model Quiz {
-  id              String   @id @default(uuid())
-  teacherId       String?
-  teacher         Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  authorId        String
-  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  title           String
-  subject         String
-  questions       Json
-  timePerQuestion Int
-  visibility      QuizVisibility @default(PRIVATE)
-  createdAt       DateTime @default(now())
-  lastPlayedAt    DateTime?
-
-  sessions QuizSession[]
-
-  @@index([teacherId])
-  @@index([authorId])
-  @@index([subject])
-  @@index([createdAt])
-  @@index([visibility])
-}
-
-model QuizSession {
-  id                   String    @id @default(uuid())
-  quizId               String
-  quiz                 Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  sessionCode          String    @unique
-  qrCodeUrl            String
-  status               String
-  currentQuestionIndex Int       @default(0)
-  startedAt            DateTime  @default(now())
-  endedAt              DateTime?
-
-  participations QuizParticipation[]
-  powerUps       PowerUp[]
-
-  @@index([sessionCode])
-  @@index([quizId])
-  @@index([status])
-  @@index([startedAt])
-}
-
-model QuizParticipation {
-  id          String      @id @default(uuid())
-  sessionId   String
-  session     QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  answers     Json
-  score       Int
-  rank        Int
-  completedAt DateTime    @default(now())
-
-  @@unique([sessionId, studentId])
-  @@index([studentId])
-}
-
-model PowerUp {
-  id        String      @id @default(uuid())
-  sessionId String
-  session   QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  studentId String
-  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type      PowerUpType
-  used      Boolean     @default(false)
-  usedAt    DateTime?
-  createdAt DateTime    @default(now())
-
-  @@unique([sessionId, studentId, type])
-  @@index([sessionId, studentId])
-  @@index([studentId])
-}
-
-model Assignment {
-  id          String   @id @default(uuid())
-  teacherId   String
-  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject     String
-  topic       String
-  title       String
-  description String
-  fileUrl     String?
-  dueDate     DateTime
-  maxMarks    Int
-  createdAt   DateTime @default(now())
-
-  @@index([teacherId])
-  @@index([subject])
-  @@index([dueDate])
-  @@index([subject, dueDate])
-}
-
-model Exam {
-  id         String   @id @default(uuid())
-  teacherId  String
-  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject    String
-  examName   String
-  examDate   DateTime
-  totalMarks Int
-  questions  Json
-  createdAt  DateTime @default(now())
-
-  marks StudentExamMarks[]
-
-  @@index([teacherId])
-  @@index([subject])
-  @@index([examDate])
-  @@index([subject, examDate])
-}
-
-model StudentExamMarks {
-  id            String   @id @default(uuid())
-  examId        String
-  exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  studentId     String
-  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  questionMarks Json
-  totalMarks    Int
-  percentage    Float
-  topicScores   Json
-  recordedAt    DateTime @default(now())
-
-  @@unique([examId, studentId])
-  @@index([studentId])
-}
-
-model StudentPerformance {
-  id             String   @id @default(uuid())
-  studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject        String
-  topic          String
-  assessmentType String
-  score          Float
-  maxScore       Float
-  percentage     Float
-  assessmentDate DateTime
-  createdAt      DateTime @default(now())
-
-  @@index([studentId, subject, topic])
-  @@index([studentId, assessmentDate])
-  @@index([studentId, subject])
-  @@index([subject, topic])
-}
-
-model AcademicHealth {
-  id               String   @id @default(uuid())
-  studentId        String   @unique
-  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  overallScore     Float
-  quizScore        Float
-  assignmentScore  Float
-  examScore        Float
-  consistencyScore Float
-  weakSubjects     String[]
-  weakTopics       Json
-  calculatedAt     DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-}
 
 model CalendarDay {
   id           String   @id @default(uuid())
@@ -400,7 +202,7 @@ model PortalData {
   updatedAt   DateTime @updatedAt
 }
 
-// ─── Classroom (Teacher-created, invite-only) ─────────────────────────────────
+// ─── Classroom (GCR-style, Teacher-created, invite-only) ──────────────────────
 
 model Classroom {
   id          String   @id @default(uuid())
@@ -408,12 +210,15 @@ model Classroom {
   teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   name        String
   subject     String
+  description String?
   inviteCode  String   @unique
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  members     ClassroomMember[]
-  sketchBoards SketchBoard[]
+  members      ClassroomMember[]
+  posts        ClassroomPost[]
+  whiteboards  Whiteboard[]
 
   @@index([teacherId])
   @@index([inviteCode])
@@ -427,28 +232,70 @@ model ClassroomMember {
   student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
   joinedAt    DateTime  @default(now())
+  approvedAt  DateTime?
 
   @@unique([classroomId, studentId])
   @@index([classroomId])
   @@index([studentId])
+  @@index([status])
 }
 
-// ─── Sketch Board ─────────────────────────────────────────────────────────────
+// ─── Classroom Posts (Links, Files, Announcements) ────────────────────────────
 
-model SketchBoard {
+model ClassroomPost {
   id          String    @id @default(uuid())
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
-  title       String    @default("Untitled Board")
-  // Stored as JSON array of drawing strokes
-  data        Json      @default("[]")
-  shareToken  String    @unique
-  isLive      Boolean   @default(false)
+  authorId    String    // Teacher User ID
+  authorName  String
+  title       String?
+  content     String
+  links       Json      @default("[]") // Array of { url: string, title: string }
+  attachments Json      @default("[]") // Array of { url: string, name: string, type: string, size: number }
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([classroomId])
-  @@index([shareToken])
+  @@index([createdAt])
+}
+
+// ─── Whiteboard (Code Sharing, invite-only) ───────────────────────────────────
+
+model Whiteboard {
+  id          String    @id @default(uuid())
+  classroomId String?
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  teacherId   String
+  title       String    @default("Untitled Whiteboard")
+  description String?
+  inviteCode  String    @unique
+  // Code content stored as JSON: { language: string, code: string }
+  content     Json      @default("{}")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members     WhiteboardMember[]
+
+  @@index([teacherId])
+  @@index([inviteCode])
+  @@index([classroomId])
+}
+
+model WhiteboardMember {
+  id           String     @id @default(uuid())
+  whiteboardId String
+  whiteboard   Whiteboard @relation(fields: [whiteboardId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status       String     @default("PENDING") // PENDING | APPROVED | REJECTED
+  joinedAt     DateTime   @default(now())
+  approvedAt   DateTime?
+
+  @@unique([whiteboardId, studentId])
+  @@index([whiteboardId])
+  @@index([studentId])
+  @@index([status])
 }
 
 model Timetable {
@@ -474,92 +321,6 @@ model SectionTimetable {
   processedAt DateTime @default(now())
 
   @@unique([year, section, batch, department])
-}
-
-model AcademicCalendar {
-  id              String   @id @default(uuid())
-  academicYear    String
-  fileUrl         String
-  dayOrderMapping Json
-  uploadedAt      DateTime @default(now())
-  processedAt     DateTime @default(now())
-}
-
-enum NotificationType {
-  NEW_LECTURE_NOTE
-  QUIZ_STARTED
-  QUIZ_SCHEDULED
-  ASSIGNMENT_POSTED
-  PERFORMANCE_ALERT
-  SYSTEM_ANNOUNCEMENT
-}
-
-model Notification {
-  id        String           @id @default(uuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
-  title     String
-  message   String
-  actionUrl String?
-  metadata  Json?
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  @@index([userId, read])
-  @@index([createdAt])
-}
-
-model NotificationPreferences {
-  id                String   @id @default(uuid())
-  userId            String   @unique
-  enableInApp       Boolean  @default(true)
-  notificationTypes Json
-  updatedAt         DateTime @updatedAt
-}
-model SectionTeacher {
-  id         String   @id @default(uuid())
-  teacherId  String
-  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  year       Int
-  section    String
-  department String
-  createdAt  DateTime @default(now())
-
-  @@unique([teacherId, year, section, department])
-  @@index([year, section, department])
-}
-
-model SectionPost {
-  id         String   @id @default(uuid())
-  year       Int
-  section    String
-  department String
-  sectionKey String?  // Denormalized: "{year}-{section}-{department}"
-  authorId   String   // Can be User ID (Student or Teacher)
-  authorName String
-  content    String
-  attachments Json?    // Array of file URLs
-  createdAt  DateTime @default(now())
-
-  comments   SectionComment[]
-
-  @@index([year, section, department])
-  @@index([sectionKey])
-  @@index([createdAt])
-}
-
-model SectionComment {
-  id         String      @id @default(uuid())
-  postId     String
-  post       SectionPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId   String
-  authorName String
-  content    String
-  createdAt  DateTime    @default(now())
-
-  @@index([postId])
-  @@index([createdAt])
 }
 
 // ─── AI Provider Configuration ───────────────────────────────────────────────

@@ -1,101 +1,152 @@
 # InsightU Platform
 
-InsightU is a modern, high-performance academic ecosystem designed for universities. It provides students with real-time academic health tracking, interactive lecture notes with Smart Board synchronization, automated timetable mapping, and collaborative section feeds.
+InsightU is a modern, high-performance academic ecosystem designed for universities. It provides students with real-time academic health tracking, interactive lecture notes, automated timetable mapping, Google Classroom-style collaboration, and code sharing whiteboards.
 
 ---
 
-## 🚀 Quick Start (Local Setup)
+## 🎯 Recent Major Updates (v2.0.0)
 
-This guide provides step-by-step instructions for both **Windows** and **macOS** users to get the project running locally.
+### ✨ New Features:
+- **GCR-style Classrooms**: Teacher-created classrooms with invite codes, posts, links, and file attachments
+- **Code Sharing Whiteboards**: Collaborative code editing with approval workflow
+- **Supabase Integration**: Secure file storage for classroom materials
+- **Enhanced Security**: Rate limiting, CORS restrictions, stronger password requirements
+
+### 🗑️ Removed:
+- Section feed feature (replaced with classroom-based collaboration)
+
+**📚 See [CHANGELOG.md](CHANGELOG.md) for complete details**
+
+---
+
+## 🚀 Quick Start (5 Minutes)
 
 ### 📋 Prerequisites
-
-Ensure you have the following installed on your system:
 
 - **Node.js**: Version 18.0.0 or higher ([Download](https://nodejs.org/))
 - **PostgreSQL**: Version 15.0 or higher ([Download](https://www.postgresql.org/download/))
 - **Redis**: 
-  - **Mac**: Install via Homebrew: `brew install redis`
-  - **Windows**: Use [Redis for Windows](https://github.com/tporadowski/redis/releases) or WSL2.
-- **Git**: [Download](https://git-scm.com/downloads)
+  - **Mac**: `brew install redis && brew services start redis`
+  - **Windows**: [Redis for Windows](https://github.com/tporadowski/redis/releases) or WSL2
+- **Supabase Account**: Free tier at [supabase.com](https://supabase.com)
 
 ---
 
 ### 🛠️ Installation Steps
 
 #### 1. Clone the Repository
-Open your terminal (PowerShell/CMD on Windows, Terminal on Mac) and run:
 ```bash
 git clone https://github.com/Nishant-codess/InsightU.git
 cd InsightU
 ```
 
 #### 2. Install Dependencies
-This project uses **npm workspaces**. You only need to run this command once in the root directory to install dependencies for both the frontend and backend:
 ```bash
 npm install
 ```
 
-#### 3. Environment Configuration
-Navigate to the `backend` directory and create your `.env` file:
+#### 3. Setup Supabase
 
-**macOS / Linux:**
+1. Create account at [supabase.com](https://supabase.com)
+2. Create new project
+3. Go to **Storage** → Create bucket named `insightu-files` (make it public)
+4. Go to **Settings** → **API** and copy:
+   - Project URL
+   - `anon` public key
+   - `service_role` secret key
+
+#### 4. Configure Backend
+
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-**Windows (PowerShell):**
-```powershell
-cd backend
-copy .env.example .env
+Edit `backend/.env` with your credentials:
+
+```env
+# Database
+DATABASE_URL="postgresql://postgres:password@localhost:5432/insightu?schema=public"
+
+# Redis
+REDIS_URL="redis://localhost:6379"
+
+# Server
+PORT=3000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+
+# JWT (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+JWT_REFRESH_SECRET=your-super-secret-refresh-key-min-32-chars
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
+
+# Google OAuth (get from Google Cloud Console)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+
+# File Storage
+FILE_STORAGE_PATH=./uploads
+
+# Supabase (paste your credentials from step 3)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-role-key
+SUPABASE_BUCKET_NAME=insightu-files
 ```
 
-**⚠️ Exhaustive `.env` Config Guide:**
-Open `backend/.env` in your code editor and configure the following:
-
-- **DATABASE_URL**: Your PostgreSQL connection string. 
-  - *Format*: `postgresql://<user>:<password>@localhost:5432/insightu`
-  - *How to get*: Set this up in your local PostgreSQL pgAdmin or CLI.
-- **JWT_SECRET & JWT_REFRESH_SECRET**:
-  - *How to get*: You can generate these by running `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` in your terminal.
-- **GOOGLE_CLIENT_ID & CLIENT_SECRET**:
-  - *How to get*: Create a project in the [Google Cloud Console](https://console.cloud.google.com/), enable the "Google People API," and create OAuth 2.0 credentials.
-- **REDIS_URL**: 
-  - *Default*: `redis://localhost:6379`
-  - *How to get*: Ensure your Redis server is running locally.
-
-> [!IMPORTANT]
-> For security, the `.env` file is ignored by Git and will not be uploaded to GitHub. Each person cloning the repo must create their own local `.env` file.
-
-#### 4. Database Setup (Prisma)
-Ensure PostgreSQL is running, then execute these commands in the `backend` folder:
+#### 5. Configure Frontend
 
 ```bash
-# Generate the Prisma Client
+cd ../frontend
+cp .env.example .env
+```
+
+Edit `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:3000
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+#### 6. Setup Database
+
+```bash
+cd ../backend
+
+# Generate Prisma client
 npm run prisma:generate
 
-# Run migrations to create the database schema
+# Run migrations
 npm run prisma:migrate
 
-# Seed the database with sample data
-# After seeding, the following login works:
-# Admin: admin@insightu.edu | Pass: admin123
+# Seed with sample data
 npm run prisma:seed
 ```
 
----
+**Sample Login Credentials:**
+- **Admin**: `admin@insightu.edu` / `admin123`
+- **Teacher**: `teacher@insightu.edu` / `teacher123`
+- **Student**: `student1@insightu.edu` / `student123`
 
-### 🏁 Running the Application
+#### 7. Start Development Servers
 
-You can start both the frontend and backend simultaneously from the **root directory**:
-
+From root directory:
 ```bash
-# Return to root directory
-cd ..
-
-# Start development servers
 npm run dev
+```
+
+Or separately:
+```bash
+# Terminal 1 - Backend
+cd backend && npm run dev
+
+# Terminal 2 - Frontend
+cd frontend && npm run dev
 ```
 
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
@@ -103,37 +154,219 @@ npm run dev
 
 ---
 
-## 📖 Key Features & Technology
+## 📖 Key Features
 
-- **Academic Health Tracking**: Real-time monitoring of attendance, credits, and performance.
-- **Smart Timetable**: Automated mapping of academic schedules via AI-driven OCR logic.
-- **Collaborative Sections**: GCR-style collaboration feed with subject-specific groups.
-- **Note Sync**: Real-time synchronization of Smart Board annotations and lecture material.
-- **Admin Portal**: Institutional oversight and schedule management.
+### 🎓 For Students:
+- **Academic Health Dashboard**: Real-time attendance, credits, and performance tracking
+- **Smart Timetable**: Automated schedule with day-order system
+- **Lecture Notes**: Browse, bookmark, and annotate materials
+- **Quiz System**: Solo attempts and live quiz sessions
+- **Mock Tests**: Practice exams with difficulty levels
+- **Portal Sync**: Import attendance and marks from SRM portal
+- **Classrooms**: Join teacher-created classrooms for materials and announcements
+- **Whiteboards**: Collaborative code sharing sessions
 
-### Tech Stack
-- **Frontend**: React 18, TypeScript, TailwindCSS, Framer Motion, TanStack Query.
-- **Backend**: Node.js, Express, Prisma ORM, PostgreSQL, Redis, Socket.io.
-- **Testing**: Jest, Fast-check for property-based testing.
+### 👨‍🏫 For Teachers:
+- **Classroom Management**: Create classrooms with invite codes
+- **Post Materials**: Share links, PDFs, images, and documents
+- **Approve Students**: Control who joins your classrooms
+- **Lecture Notes Upload**: Share course materials
+- **Quiz Creation**: Build interactive quizzes
+- **Whiteboard Sessions**: Share code with students in real-time
+- **Performance Analytics**: View class health metrics
+
+### 👨‍💼 For Admins:
+- **Calendar Management**: Upload academic calendars
+- **Timetable Management**: Manage unified batch timetables
+- **User Management**: List, update, delete users
+- **System Stats**: Monitor platform health
+
+### 🔄 Real-time Features:
+- Live quiz sessions with leaderboards (Socket.IO)
+- Smart Board synchronization
+- Real-time notifications
+
+---
+
+## 🏗️ Tech Stack
+
+### Frontend:
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: TailwindCSS + Framer Motion
+- **State**: Zustand
+- **Data Fetching**: TanStack Query (React Query)
+- **Real-time**: Socket.IO client
+- **Charts**: Chart.js
+- **PDF Viewer**: react-pdf
+
+### Backend:
+- **Runtime**: Node.js with TypeScript
+- **Framework**: Express.js
+- **Database**: PostgreSQL 15+ with Prisma ORM
+- **Caching**: Redis
+- **Real-time**: Socket.IO
+- **Authentication**: JWT + Google OAuth 2.0
+- **File Storage**: Supabase Storage
+- **Security**: bcrypt, express-rate-limit
+- **Testing**: Jest + Fast-check
 
 ---
 
 ## 📂 Project Structure
 
-- `frontend/`: React + Vite application with TailwindCSS and Framer Motion.
-- `backend/`: Node.js + Express API with Prisma ORM and Socket.io.
-- `prisma/`: Database schema and seed data definitions.
+```
+InsightU/
+├── backend/
+│   ├── prisma/              # Database schema and migrations
+│   ├── src/
+│   │   ├── config/          # Database, Redis, Supabase config
+│   │   ├── middleware/      # Auth, RBAC, error handling
+│   │   ├── routes/          # API endpoints
+│   │   ├── services/        # Business logic
+│   │   │   ├── classroom/   # Classroom management
+│   │   │   ├── whiteboard/  # Whiteboard management
+│   │   │   ├── auth/        # Authentication
+│   │   │   └── ...
+│   │   └── index.ts         # Server entry point
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   ├── pages/           # Page components
+│   │   ├── store/           # Zustand stores
+│   │   └── App.tsx
+│   └── package.json
+├── CHANGELOG.md             # Detailed change log
+├── SETUP_GUIDE.md           # Comprehensive setup guide
+├── IMPLEMENTATION_SUMMARY.md # Technical implementation details
+└── README.md                # This file
+```
 
 ---
 
-## 🛠️ Troubleshooting
+## 🔒 Security Features
 
-- **Node Version**: If you encounter errors during `npm install`, ensure you are on Node 18+.
-- **Database Connection**: Verify your `DATABASE_URL` matches your local PostgreSQL credentials.
-- **Redis**: Ensure the Redis server is started (`redis-server`) before running the backend.
+- ✅ Rate limiting (100 req/15min general, 5 req/15min auth)
+- ✅ CORS restrictions to frontend domain only
+- ✅ Strong password requirements (8+ chars, uppercase, lowercase, number, special char)
+- ✅ JWT token authentication with refresh tokens
+- ✅ Role-based access control (RBAC)
+- ✅ Request size limits (10MB)
+- ✅ File type validation on uploads
+- ✅ Secure file storage with Supabase
+- ✅ Environment-based configuration
+
+---
+
+## 📚 Documentation
+
+- **[CHANGELOG.md](CHANGELOG.md)** - Complete list of changes and migration guide
+- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Detailed setup instructions and troubleshooting
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical implementation details
+
+---
+
+## 🛠️ Available Scripts
+
+### Root Directory:
+```bash
+npm run dev          # Start both frontend and backend
+npm install          # Install all dependencies (workspaces)
+```
+
+### Backend:
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm start            # Start production server
+npm test             # Run tests
+npm run prisma:generate  # Generate Prisma client
+npm run prisma:migrate   # Run database migrations
+npm run prisma:seed      # Seed database with sample data
+```
+
+### Frontend:
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm test             # Run tests
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Port Already in Use:
+```bash
+# Kill process on port 3000 (backend)
+lsof -ti:3000 | xargs kill -9
+
+# Kill process on port 5173 (frontend)
+lsof -ti:5173 | xargs kill -9
+```
+
+### Database Connection Error:
+- Check PostgreSQL is running: `pg_isready`
+- Verify `DATABASE_URL` in `.env`
+- Ensure database `insightu` exists
+
+### Redis Connection Error:
+- Check Redis is running: `redis-cli ping` (should return PONG)
+- Verify `REDIS_URL` in `.env`
+
+### Supabase Upload Error:
+- Verify bucket name matches `SUPABASE_BUCKET_NAME`
+- Check bucket is public or has correct policies
+- Ensure service role key is correct
+
+### Migration Error:
+```bash
+# Reset and try again
+cd backend
+npx prisma migrate reset
+npx prisma migrate dev
+```
+
+**📖 See [SETUP_GUIDE.md](SETUP_GUIDE.md) for more troubleshooting**
+
+---
+
+## 🚀 Deployment
+
+### Production Checklist:
+- [ ] Set `NODE_ENV=production`
+- [ ] Use strong JWT secrets (32+ characters)
+- [ ] Configure production database
+- [ ] Set `FRONTEND_URL` to production domain
+- [ ] Enable HTTPS
+- [ ] Configure Supabase for production
+- [ ] Set up proper CORS origins
+- [ ] Run `npx prisma migrate deploy`
 
 ---
 
 ## 📜 License
 
 Private Repository - All rights reserved.
+
+---
+
+## 🤝 Contributing
+
+This is a private repository. For access or contributions, please contact the repository owner.
+
+---
+
+## 📞 Support
+
+For issues or questions:
+1. Check [SETUP_GUIDE.md](SETUP_GUIDE.md) for common problems
+2. Review [CHANGELOG.md](CHANGELOG.md) for recent changes
+3. Check API endpoints in `backend/src/routes/`
+4. Review service logic in `backend/src/services/`
+
+---
+
+**Built with ❤️ for modern academic institutions**

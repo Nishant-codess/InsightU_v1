@@ -21,6 +21,11 @@ export async function createSession(userId: string, token: string, expiresInSeco
     createdAt: new Date().toISOString(),
   };
 
+  if (!redisClient) {
+    console.warn('[session] Redis not configured, session not stored');
+    return;
+  }
+  
   await redisClient.setEx(
     `${SESSION_PREFIX}${token}`,
     expiresInSeconds,
@@ -33,6 +38,7 @@ export async function createSession(userId: string, token: string, expiresInSeco
  * @param token - Authentication token to invalidate
  */
 export async function invalidateSession(token: string): Promise<void> {
+  if (!redisClient) return;
   await redisClient.del(`${SESSION_PREFIX}${token}`);
 }
 
@@ -42,6 +48,7 @@ export async function invalidateSession(token: string): Promise<void> {
  * @returns SessionData if valid, or null if invalid/expired
  */
 export async function validateSession(token: string): Promise<SessionData | null> {
+  if (!redisClient) return null;
   const data = await redisClient.get(`${SESSION_PREFIX}${token}`);
   if (!data) {
     return null;

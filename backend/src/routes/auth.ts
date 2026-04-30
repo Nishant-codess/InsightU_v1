@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import passport from 'passport';
 import { initiateGoogleOAuth, handleGoogleCallback } from '../services/auth/oauth';
-
 import { registerWithEmail, loginWithEmail } from '../services/auth/emailAuth';
+import { loginWithPortal } from '../services/auth/portalAuth';
 
 const router = Router();
 
@@ -27,10 +27,27 @@ router.post('/register', async (req: Request, res: Response) => {
 
 /**
  * POST /api/auth/login
- * Login with email and password
+ * Login with SRM Academia portal credentials or database (admin only)
  */
 router.post('/login', async (req: Request, res: Response) => {
   try {
+    const { email, password } = req.body;
+    
+    // Admin login uses database authentication
+    if (email === 'admin@srmist.edu.in') {
+      const result = await loginWithEmail(req.body);
+      res.json(result);
+      return;
+    }
+    
+    // Use portal authentication for other SRM emails
+    if (email && email.endsWith('@srmist.edu.in')) {
+      const result = await loginWithPortal(email, password);
+      res.json(result);
+      return;
+    }
+    
+    // Fallback to email/password for non-SRM emails
     const result = await loginWithEmail(req.body);
     res.json(result);
   } catch (error) {

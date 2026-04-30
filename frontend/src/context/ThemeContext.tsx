@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { UserRole } from '../store/useAuthStore';
-import axios from 'axios';
+import { applyTheme } from './applyTheme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,8 +42,6 @@ export function resolveDefaultTheme(role: UserRole): ThemeId {
       return 'spiderman';
     case 'TEACHER':
       return 'standard-professional';
-    case 'PARENT':
-      return 'doraemon';
     case 'ADMIN':
       return 'dark-professional';
     default:
@@ -61,34 +59,6 @@ export function useTheme(): ThemeContextValue {
   return ctx;
 }
 
-// ─── CSS variable application ─────────────────────────────────────────────────
-
-export function applyTheme(themeId: ThemeId, themes: ThemeDefinition[]): void {
-  const theme = themes.find((t) => t.id === themeId);
-  if (!theme) return;
-
-  const root = document.documentElement;
-
-  root.style.setProperty('--color-brand', theme.primary);
-  root.style.setProperty('--color-background', theme.background);
-  root.style.setProperty('--color-surface', theme.surface);
-  root.style.setProperty('--color-text-muted', theme.textMuted);
-
-  // Apply decorative variables
-  Object.entries(theme.decorative).forEach(([key, value]) => {
-    root.style.setProperty(key, value);
-  });
-
-  // Toggle light/dark class on <html>
-  if (theme.isLight) {
-    root.classList.add('light');
-    root.classList.remove('dark');
-  } else {
-    root.classList.add('dark');
-    root.classList.remove('light');
-  }
-}
-
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'insightu-theme';
@@ -96,13 +66,10 @@ const STORAGE_KEY = 'insightu-theme';
 interface ThemeProviderProps {
   children: ReactNode;
   themes: ThemeDefinition[];
-  /** If provided, used to resolve the default theme on first login */
   userRole?: UserRole;
-  /** JWT token for persisting preference to the API */
-  token?: string | null;
 }
 
-export function ThemeProvider({ children, themes, userRole, token }: ThemeProviderProps) {
+export function ThemeProvider({ children, themes, userRole }: ThemeProviderProps) {
   const [themeId, setThemeId] = useState<ThemeId>(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
     if (stored && themes.some((t) => t.id === stored)) return stored;
@@ -127,19 +94,7 @@ export function ThemeProvider({ children, themes, userRole, token }: ThemeProvid
   const setTheme = (id: ThemeId) => {
     setThemeId(id);
     localStorage.setItem(STORAGE_KEY, id);
-
-    // Persist to backend (fire-and-forget)
-    if (token) {
-      axios
-        .patch(
-          '/api/user/preferences',
-          { theme: id },
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        .catch(() => {
-          // Non-critical — local preference is already saved
-        });
-    }
+    // Theme saved locally only - no backend call needed
   };
 
   const theme = themes.find((t) => t.id === themeId) ?? themes[0];

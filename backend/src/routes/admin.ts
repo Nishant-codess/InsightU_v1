@@ -310,3 +310,236 @@ router.delete('/users/:id', async (req, res, next) => {
 });
 
 export default router;
+
+
+// ─── Teacher & Parent Approval Routes ────────────────────────────────────────
+
+/**
+ * GET /api/admin/pending-teachers
+ * Get all pending teacher approvals
+ */
+router.get('/pending-teachers', async (_req, res) => {
+  try {
+    const pendingTeachers = await prisma.teacher.findMany({
+      where: {
+        approvalStatus: 'PENDING',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: {
+        user: {
+          createdAt: 'desc',
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      teachers: pendingTeachers,
+    });
+  } catch (error) {
+    console.error('Error fetching pending teachers:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch pending teachers',
+    });
+  }
+});
+
+/**
+ * GET /api/admin/pending-parents
+ * Get all pending parent approvals
+ */
+router.get('/pending-parents', async (_req, res) => {
+  try {
+    const pendingParents = await prisma.parent.findMany({
+      where: {
+        approvalStatus: 'PENDING',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json({
+      success: true,
+      parents: pendingParents,
+    });
+  } catch (error) {
+    console.error('Error fetching pending parents:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch pending parents',
+    });
+  }
+});
+
+/**
+ * POST /api/admin/approve-teacher/:teacherId
+ * Approve a teacher
+ */
+router.post('/approve-teacher/:teacherId', async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const adminUserId = req.body.adminUserId; // From JWT in production
+
+    const teacher = await prisma.teacher.update({
+      where: { id: teacherId },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedAt: new Date(),
+        approvedBy: adminUserId,
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Teacher approved successfully',
+      teacher,
+    });
+  } catch (error) {
+    console.error('Error approving teacher:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to approve teacher',
+    });
+  }
+});
+
+/**
+ * POST /api/admin/reject-teacher/:teacherId
+ * Reject a teacher
+ */
+router.post('/reject-teacher/:teacherId', async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const { reason } = req.body;
+
+    const teacher = await prisma.teacher.update({
+      where: { id: teacherId },
+      data: {
+        approvalStatus: 'REJECTED',
+        rejectionReason: reason || 'No reason provided',
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Teacher rejected',
+      teacher,
+    });
+  } catch (error) {
+    console.error('Error rejecting teacher:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reject teacher',
+    });
+  }
+});
+
+/**
+ * POST /api/admin/approve-parent/:parentId
+ * Approve a parent
+ */
+router.post('/approve-parent/:parentId', async (req, res) => {
+  try {
+    const { parentId } = req.params;
+    const adminUserId = req.body.adminUserId; // From JWT in production
+
+    const parent = await prisma.parent.update({
+      where: { id: parentId },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedAt: new Date(),
+        approvedBy: adminUserId,
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Parent approved successfully',
+      parent,
+    });
+  } catch (error) {
+    console.error('Error approving parent:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to approve parent',
+    });
+  }
+});
+
+/**
+ * POST /api/admin/reject-parent/:parentId
+ * Reject a parent
+ */
+router.post('/reject-parent/:parentId', async (req, res) => {
+  try {
+    const { parentId } = req.params;
+    const { reason } = req.body;
+
+    const parent = await prisma.parent.update({
+      where: { id: parentId },
+      data: {
+        approvalStatus: 'REJECTED',
+        rejectionReason: reason || 'No reason provided',
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Parent rejected',
+      parent,
+    });
+  } catch (error) {
+    console.error('Error rejecting parent:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reject parent',
+    });
+  }
+});

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
   ArrowPathIcon, CheckCircleIcon, ExclamationCircleIcon,
-  ChartBarIcon, BookOpenIcon, LockClosedIcon, XMarkIcon,
+  LockClosedIcon, XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 interface AttendanceRecord { subject: string; attended: number; total: number; percentage: number; }

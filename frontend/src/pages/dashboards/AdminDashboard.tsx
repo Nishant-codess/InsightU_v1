@@ -28,7 +28,7 @@ export default function AdminDashboard() {
       systemHealth: 'Loading...'
   });
 
-  const [activeTab, setActiveTab] = useState<'upload' | 'sync' | 'users' | 'parents'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'sync' | 'users' | 'parents' | 'approvals'>('upload');
   const [usersList, setUsersList] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [parentsList, setParentsList] = useState<any[]>([]);
@@ -37,6 +37,11 @@ export default function AdminDashboard() {
   const [linkingParentId, setLinkingParentId] = useState<string | null>(null);
   const [linkStatus, setLinkStatus] = useState<Record<string, 'idle' | 'loading' | 'success' | 'error'>>({});
   const [linkMessages, setLinkMessages] = useState<Record<string, string>>({});
+
+  // Approval state
+  const [pendingTeachers, setPendingTeachers] = useState<any[]>([]);
+  const [pendingParents, setPendingParents] = useState<any[]>([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
 
   // Timetable Stats
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -120,6 +125,28 @@ export default function AdminDashboard() {
             }
         };
         fetchParents();
+    }
+    if (activeTab === 'approvals') {
+        const fetchApprovals = async () => {
+            setLoadingApprovals(true);
+            try {
+                const [teachersRes, parentsRes] = await Promise.all([
+                    axios.get('/api/admin/pending-teachers', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }),
+                    axios.get('/api/admin/pending-parents', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    })
+                ]);
+                setPendingTeachers(teachersRes.data.teachers || []);
+                setPendingParents(parentsRes.data.parents || []);
+            } catch (err) {
+                console.error('Failed to fetch pending approvals:', err);
+            } finally {
+                setLoadingApprovals(false);
+            }
+        };
+        fetchApprovals();
     }
   }, [token, activeTab]);
 
@@ -219,6 +246,12 @@ export default function AdminDashboard() {
                 className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'sync' ? 'bg-brand text-background shadow-lg shadow-brand/20' : 'text-textLight hover:text-white'}`}
              >
                  Section Sync
+             </button>
+             <button 
+                onClick={() => setActiveTab('approvals')}
+                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'approvals' ? 'bg-brand text-background shadow-lg shadow-brand/20' : 'text-textLight hover:text-white'}`}
+             >
+                 Approvals
              </button>
              <button 
                 onClick={() => setActiveTab('users')}
@@ -546,7 +579,183 @@ export default function AdminDashboard() {
                 )}
             </div>
         </motion.div>
-      ) : (
+      ) : activeTab === 'approvals' ? (
+        <div className="space-y-8">
+          {/* Pending Teachers */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-8 border-white/5"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <AcademicCapIcon className="w-6 h-6 text-brand" />
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Pending Teacher Approvals</h2>
+            </div>
+            
+            {loadingApprovals ? (
+              <div className="text-center py-20 text-textLight animate-pulse font-black uppercase tracking-widest text-xs">Loading Approvals...</div>
+            ) : pendingTeachers.length === 0 ? (
+              <div className="text-center py-12 text-textLight text-sm">No pending teacher approvals</div>
+            ) : (
+              <div className="space-y-4">
+                {pendingTeachers.map((teacher: any) => (
+                  <div key={teacher.id} className="p-6 bg-surface/50 border border-white/5 rounded-2xl space-y-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="text-white font-black uppercase tracking-tight text-lg">{teacher.name}</p>
+                        <p className="text-xs text-textLight mt-1">{teacher.user?.email}</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
+                            {teacher.department}
+                          </span>
+                          {teacher.subjects?.map((subject: string) => (
+                            <span key={subject} className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs">
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {teacher.idCardUrl && (
+                          <a 
+                            href={teacher.idCardUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-white/5 border border-white/10 text-white rounded-xl text-xs font-bold hover:bg-white/10 transition-all text-center"
+                          >
+                            View ID Card
+                          </a>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.post(`/api/admin/approve-teacher/${teacher.id}`, 
+                                  { adminUserId: user?.id },
+                                  { headers: { Authorization: `Bearer ${token}` } }
+                                );
+                                setPendingTeachers(prev => prev.filter(t => t.id !== teacher.id));
+                              } catch (err) {
+                                console.error('Approval failed:', err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl text-xs font-black hover:bg-green-500/30 transition-all"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const reason = prompt('Rejection reason (optional):');
+                              try {
+                                await axios.post(`/api/admin/reject-teacher/${teacher.id}`, 
+                                  { reason },
+                                  { headers: { Authorization: `Bearer ${token}` } }
+                                );
+                                setPendingTeachers(prev => prev.filter(t => t.id !== teacher.id));
+                              } catch (err) {
+                                console.error('Rejection failed:', err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-xs font-black hover:bg-red-500/30 transition-all"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Pending Parents */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="glass-card p-8 border-white/5"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <UsersIcon className="w-6 h-6 text-brand" />
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Pending Parent Approvals</h2>
+            </div>
+            
+            {loadingApprovals ? (
+              <div className="text-center py-20 text-textLight animate-pulse font-black uppercase tracking-widest text-xs">Loading Approvals...</div>
+            ) : pendingParents.length === 0 ? (
+              <div className="text-center py-12 text-textLight text-sm">No pending parent approvals</div>
+            ) : (
+              <div className="space-y-4">
+                {pendingParents.map((parent: any) => (
+                  <div key={parent.id} className="p-6 bg-surface/50 border border-white/5 rounded-2xl space-y-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="text-white font-black uppercase tracking-tight text-lg">{parent.name}</p>
+                        <p className="text-xs text-textLight mt-1">{parent.user?.email}</p>
+                        {parent.phone && (
+                          <p className="text-xs text-textLight mt-1">Phone: {parent.phone}</p>
+                        )}
+                        <div className="mt-3 p-3 bg-brand/10 border border-brand/20 rounded-xl">
+                          <p className="text-xs text-brand font-bold mb-1">Child's SRM Email:</p>
+                          <p className="text-sm text-white font-mono">{parent.childSrmEmail}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {parent.childIdCardUrl && (
+                          <a 
+                            href={parent.childIdCardUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-white/5 border border-white/10 text-white rounded-xl text-xs font-bold hover:bg-white/10 transition-all text-center"
+                          >
+                            View Child's ID Card
+                          </a>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.post(`/api/admin/approve-parent/${parent.id}`, 
+                                  { adminUserId: user?.id },
+                                  { headers: { Authorization: `Bearer ${token}` } }
+                                );
+                                setPendingParents(prev => prev.filter(p => p.id !== parent.id));
+                              } catch (err) {
+                                console.error('Approval failed:', err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl text-xs font-black hover:bg-green-500/30 transition-all"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const reason = prompt('Rejection reason (optional):');
+                              try {
+                                await axios.post(`/api/admin/reject-parent/${parent.id}`, 
+                                  { reason },
+                                  { headers: { Authorization: `Bearer ${token}` } }
+                                );
+                                setPendingParents(prev => prev.filter(p => p.id !== parent.id));
+                              } catch (err) {
+                                console.error('Rejection failed:', err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-xs font-black hover:bg-red-500/30 transition-all"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      ) : activeTab === 'users' ? (
         <div className="glass-card p-8 border-white/5">
             <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">User Records</h2>
             {loadingUsers ? (
@@ -587,7 +796,7 @@ export default function AdminDashboard() {
                 </div>
             )}
         </div>
-      )}
+      ) : null}
 
       {activeTab === 'parents' && (
         <div className="glass-card p-8 border-white/5 space-y-6">
