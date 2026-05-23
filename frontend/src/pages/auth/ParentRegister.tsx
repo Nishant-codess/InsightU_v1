@@ -99,7 +99,7 @@ export default function ParentRegister() {
       formDataToSend.append('childIdCard', childIdCard);
 
       setIsValidating(true);
-      await axios.post('http://localhost:3000/api/parent-auth/register', formDataToSend, {
+      await axios.post('/api/parent-auth/register', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

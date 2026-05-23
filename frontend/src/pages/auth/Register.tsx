@@ -68,7 +68,7 @@ export default function Register() {
         password: fromGoogle ? undefined : formData.password,
       };
 
-      const response = await axios.post('http://localhost:3000/api/auth/register', payload);
+      const response = await axios.post('/api/auth/register', payload);
       
       const { user, accessToken } = response.data;
       login(user, accessToken);

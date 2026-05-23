@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useLiveSession, MessageType } from '../../hooks/useLiveSession';
 import { Whiteboard } from './Whiteboard';
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const API = import.meta.env.VITE_API_URL ?? '/api';
 
 type Tab = 'whiteboard' | 'pdf' | 'video';
 

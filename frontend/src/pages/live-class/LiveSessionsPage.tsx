@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { VideoCameraIcon, PlayIcon, UserGroupIcon, PlusIcon } from '@heroicons/react/24/outline';
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const API = import.meta.env.VITE_API_URL ?? '/api';
 
 export default function LiveSessionsPage() {
   const { user, token } = useAuthStore();

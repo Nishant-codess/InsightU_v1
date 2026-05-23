@@ -132,7 +132,7 @@ export default function RegisterTabs() {
       formData.append('subjects', JSON.stringify(teacherForm.subjects));
       formData.append('idCard', idCard);
 
-      await axios.post('http://localhost:3000/api/teacher-auth/register', formData, {
+      await axios.post('/api/teacher-auth/register', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       
@@ -202,7 +202,7 @@ export default function RegisterTabs() {
       formData.append('childSrmPassword', parentForm.childSrmPassword);
       formData.append('childIdCard', childIdCard);
 
-      await axios.post('http://localhost:3000/api/parent-auth/register', formData, {
+      await axios.post('/api/parent-auth/register', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       

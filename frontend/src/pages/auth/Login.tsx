@@ -30,7 +30,7 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/student-portal-login', {
+      const response = await axios.post('/api/auth/student-portal-login', {
         srmEmail,
         srmPassword
       });
@@ -53,8 +53,8 @@ export default function Login() {
 
     try {
       const endpoint = activeTab === 'teacher' 
-        ? 'http://localhost:3000/api/teacher-auth/login'
-        : 'http://localhost:3000/api/parent-auth/login';
+        ? '/api/teacher-auth/login'
+        : '/api/parent-auth/login';
 
       const response = await axios.post(endpoint, {
         email,

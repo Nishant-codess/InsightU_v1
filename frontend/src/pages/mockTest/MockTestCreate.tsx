@@ -39,7 +39,7 @@ type Step = 'configure' | 'review' | 'assign';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL ?? '';
 
 async function apiFetch(path: string, token: string, options: RequestInit = {}) {
   const res = await fetch(`${API}${path}`, {

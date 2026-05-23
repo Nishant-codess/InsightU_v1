@@ -95,7 +95,7 @@ export default function TeacherRegister() {
       formDataToSend.append('subjects', JSON.stringify(formData.subjects));
       formDataToSend.append('idCard', idCard);
 
-      await axios.post('http://localhost:3000/api/teacher-auth/register', formDataToSend, {
+      await axios.post('/api/teacher-auth/register', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
