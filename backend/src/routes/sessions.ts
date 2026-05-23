@@ -180,7 +180,9 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
     
     fs.writeFileSync(filePath, req.file.buffer);
 
-    const backendUrl = process.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const backendUrl = `${protocol}://${host}`;
     res.json({ success: true, url: `${backendUrl}/uploads/${fileName}` });
   } catch (err) {
     console.error('[Sessions] upload Error:', err);
