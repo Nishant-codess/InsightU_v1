@@ -1,411 +1,386 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
-import { io, Socket } from 'socket.io-client';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
+import { useEffect, useState } from 'react';
 import {
-  BookmarkIcon as BookmarkSolid,
-  ChatBubbleBottomCenterTextIcon,
-  BellIcon,
-  XMarkIcon,
-} from '@heroicons/react/24/solid';
-import {
-  BookmarkIcon as BookmarkOutline,
-  PencilSquareIcon,
-  DocumentTextIcon,
+  ArrowDownTrayIcon,
+  CloudArrowUpIcon,
+  ArrowTopRightOnSquareIcon,
+  DocumentArrowUpIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
-import { Button } from '../../components/ui/Button';
+
 import { useAuthStore } from '../../store/useAuthStore';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 
-interface Note {
+type ApprovedNote = {
   id: string;
   title: string;
   subject: string;
-  topic: string;
   fileUrl: string;
-  fileType: string;
-  lectureDate: string;
-  teacher?: { name: string; department: string };
-  bookmarks?: { id: string }[];
-}
-
-interface Annotation {
-  id: string;
-  content: string;
-  page?: number;
-  positionX?: number;
-  positionY?: number;
+  date?: string;
   createdAt: string;
-}
+  classroom?: { name: string };
+};
 
-interface NewNoteNotification {
-  noteId: string;
+type StudentNoteStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+type StudentNote = {
+  id: string;
   title: string;
   subject: string;
-}
+  fileUrl: string;
+  status: StudentNoteStatus;
+  date?: string;
+  createdAt: string;
+};
+
+const STATUS_CONFIG: Record<StudentNoteStatus, { label: string; icon: React.ReactNode; className: string }> = {
+  PENDING: {
+    label: 'Pending',
+    icon: <ClockIcon className="w-3.5 h-3.5" />,
+    className: 'bg-yellow-500/15 text-yellow-400 border-yellow-400/40',
+  },
+  APPROVED: {
+    label: 'Approved',
+    icon: <CheckCircleIcon className="w-3.5 h-3.5" />,
+    className: 'bg-green-500/15 text-green-400 border-green-400/40',
+  },
+  REJECTED: {
+    label: 'Rejected',
+    icon: <XCircleIcon className="w-3.5 h-3.5" />,
+    className: 'bg-red-500/15 text-red-400 border-red-400/40',
+  },
+};
 
 export default function NotesViewer() {
   const { user, token } = useAuthStore();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const noteId = searchParams.get('noteId');
+  const [approvedNotes, setApprovedNotes] = useState<ApprovedNote[]>([]);
+  const [myUploads, setMyUploads] = useState<StudentNote[]>([]);
+  const [pendingNotes, setPendingNotes] = useState<StudentNote[]>([]); // For teacher review
+  const [title, setTitle] = useState('');
+  const [subject, setSubject] = useState('');
+  const [date, setDate] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Notes list state
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [notesLoading, setNotesLoading] = useState(false);
+  const isStudent = user?.role === 'STUDENT';
+  const isTeacher = user?.role === 'TEACHER';
 
-  // Single note state
-  const [note, setNote] = useState<Note | null>(null);
-  const [noteLoading, setNoteLoading] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-  // PDF state
-  const [numPages, setNumPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageRef = useRef<HTMLDivElement>(null);
-
-  // Annotation state
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [popover, setPopover] = useState<{ x: number; y: number; page: number; pctX: number; pctY: number } | null>(null);
-  const [annotationText, setAnnotationText] = useState('');
-  const [savingAnnotation, setSavingAnnotation] = useState(false);
-
-  // Real-time notification
-  const [newNoteNotification, setNewNoteNotification] = useState<NewNoteNotification | null>(null);
-  const socketRef = useRef<Socket | null>(null);
-
-  const authHeaders = { Authorization: `Bearer ${token}` };
-
-  // ─── Socket.io: join section room, listen for NEW_NOTE ───────────────────
-  useEffect(() => {
-    if (!user?.student) return;
-
-    const { year, section, department } = user.student;
-    const sectionKey = `${year}-${section}-${department}`;
-
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
-      transports: ['websocket'],
-    });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      socket.emit('join-room', `section:${sectionKey}`);
-    });
-
-    socket.on('NEW_NOTE', (data: NewNoteNotification) => {
-      setNewNoteNotification(data);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [user]);
-
-  // ─── Fetch notes list ─────────────────────────────────────────────────────
-  const fetchNotes = useCallback(async () => {
-    setNotesLoading(true);
+  const fetchApprovedNotes = async () => {
+    if (!headers) return;
+    setIsLoadingNotes(true);
     try {
-      const res = await axios.get('/api/student/notes', { headers: authHeaders });
-      setNotes(res.data.notes || []);
+      const res = await fetch(`${API}/notes`, { headers });
+      if (res.ok) setApprovedNotes(await res.json());
     } catch (err) {
       console.error('Failed to fetch notes:', err);
     } finally {
-      setNotesLoading(false);
+      setIsLoadingNotes(false);
     }
-  }, [token]);
+  };
 
-  // ─── Fetch single note ────────────────────────────────────────────────────
-  const fetchNote = useCallback(async (id: string) => {
-    setNoteLoading(true);
+  const fetchMyUploads = async () => {
+    if (!isStudent || !headers) return;
     try {
-      const res = await axios.get(`/api/student/notes/${id}`, { headers: authHeaders });
-      const n: Note = res.data.note;
-      setNote(n);
-      setIsBookmarked((n.bookmarks?.length ?? 0) > 0);
+      const res = await fetch(`${API}/student-notes/my`, { headers });
+      if (res.ok) setMyUploads(await res.json());
     } catch (err) {
-      console.error('Failed to fetch note:', err);
-    } finally {
-      setNoteLoading(false);
+      console.error('Failed to fetch uploads:', err);
     }
-  }, [token]);
+  };
 
-  // ─── Fetch annotations ────────────────────────────────────────────────────
-  const fetchAnnotations = useCallback(async (id: string) => {
+  const fetchPendingNotes = async () => {
+    if (!isTeacher || !headers) return;
     try {
-      const res = await axios.get(`/api/student/notes/${id}/annotations`, { headers: authHeaders });
-      setAnnotations(res.data.annotations || []);
+      const res = await fetch(`${API}/student-notes/pending`, { headers });
+      if (res.ok) setPendingNotes(await res.json());
     } catch (err) {
-      console.error('Failed to fetch annotations:', err);
+      console.error('Failed to fetch pending notes:', err);
     }
-  }, [token]);
+  };
 
   useEffect(() => {
-    if (noteId) {
-      fetchNote(noteId);
-      fetchAnnotations(noteId);
-    } else {
-      fetchNotes();
-    }
-  }, [noteId]);
+    fetchApprovedNotes();
+    fetchMyUploads();
+    fetchPendingNotes();
+  }, [token]);
 
-  // ─── Bookmark toggle ──────────────────────────────────────────────────────
-  const toggleBookmark = async () => {
-    if (!note) return;
+  const handleUpload = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!headers || !file || !title.trim()) return;
+
+    setIsUploading(true);
+    setError('');
     try {
-      if (isBookmarked) {
-        await axios.delete(`/api/student/notes/${note.id}/bookmark`, { headers: authHeaders });
-        setIsBookmarked(false);
-      } else {
-        await axios.post(`/api/student/notes/${note.id}/bookmark`, {}, { headers: authHeaders });
-        setIsBookmarked(true);
+      const formData = new FormData();
+      formData.append('title', title.trim());
+      formData.append('subject', subject.trim());
+      if (date) formData.append('date', date);
+      formData.append('file', file);
+
+      const res = await fetch(`${API}/student-notes/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Upload failed');
       }
-    } catch (err) {
-      console.error('Bookmark toggle failed:', err);
-    }
-  };
 
-  // ─── Click-to-annotate ────────────────────────────────────────────────────
-  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!pageRef.current) return;
-    const rect = pageRef.current.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
-    const pctX = (offsetX / rect.width) * 100;
-    const pctY = (offsetY / rect.height) * 100;
-    setPopover({ x: offsetX, y: offsetY, page: currentPage, pctX, pctY });
-    setAnnotationText('');
-  };
-
-  const submitAnnotation = async () => {
-    if (!note || !popover || !annotationText.trim()) return;
-    setSavingAnnotation(true);
-    try {
-      await axios.post(
-        `/api/student/notes/${note.id}/annotations`,
-        {
-          content: annotationText.trim(),
-          page: popover.page,
-          positionX: popover.pctX,
-          positionY: popover.pctY,
-        },
-        { headers: authHeaders }
-      );
-      await fetchAnnotations(note.id);
-      setPopover(null);
-      setAnnotationText('');
-    } catch (err) {
-      console.error('Failed to save annotation:', err);
+      setTitle('');
+      setSubject('');
+      setDate('');
+      setFile(null);
+      fetchMyUploads();
+    } catch (err: any) {
+      setError(err.message || 'Upload failed');
     } finally {
-      setSavingAnnotation(false);
+      setIsUploading(false);
     }
   };
 
-  // ─── Notes list view ──────────────────────────────────────────────────────
-  if (!noteId) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-white">My Notes</h1>
-        {notesLoading ? (
-          <p className="text-textLight">Loading notes...</p>
-        ) : notes.length === 0 ? (
-          <p className="text-textLight italic">No notes available yet.</p>
+  const handleApproveNote = async (noteId: string, action: 'APPROVED' | 'REJECTED') => {
+    if (!headers) return;
+    try {
+      const res = await fetch(`${API}/student-notes/${noteId}/review`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: action }),
+      });
+      if (!res.ok) throw new Error('Review failed');
+      fetchPendingNotes();
+      fetchApprovedNotes();
+    } catch (err) {
+      console.error('Review error:', err);
+    }
+  };
+
+  const toAbsoluteUrl = (url: string) => (url.startsWith('http') ? url : `${API.replace('/api', '')}${url}`);
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-300 flex items-center gap-2">
+          <XCircleIcon className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Lecture Notes Repository */}
+      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">Lecture Notes Repository</h2>
+          <span className="text-xs text-gray-400 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+            {approvedNotes.length} notes
+          </span>
+        </div>
+
+        {isLoadingNotes ? (
+          <p className="text-sm text-gray-400">Loading notes...</p>
+        ) : approvedNotes.length === 0 ? (
+          <div className="py-8 text-center text-gray-400 italic opacity-60 border border-dashed border-white/10 rounded-xl">
+            <DocumentArrowUpIcon className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No notes published yet.</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {notes.map((n) => (
-              <motion.div
-                key={n.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card p-5 cursor-pointer hover:border-brand/30 transition-colors"
-                onClick={() => setSearchParams({ noteId: n.id })}
+          <div className="space-y-3">
+            {approvedNotes.map(note => (
+              <div
+                key={note.id}
+                className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3 hover:border-white/20 transition"
               >
-                <p className="text-white font-semibold truncate">{n.title}</p>
-                <p className="text-sm text-textLight mt-1">{n.subject} · {n.topic}</p>
-                <p className="text-xs text-textLight mt-2">
-                  {new Date(n.lectureDate).toLocaleDateString()}
-                </p>
-              </motion.div>
+                <div className="min-w-0">
+                  <p className="text-white font-medium truncate">{note.title}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {note.subject && <span>{note.subject} • </span>}
+                    {note.date
+                      ? new Date(note.date).toLocaleDateString()
+                      : new Date(note.createdAt).toLocaleDateString()}
+                    {note.classroom && <span> • {note.classroom.name}</span>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => window.open(toAbsoluteUrl(note.fileUrl), '_blank')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 rounded-lg text-xs font-medium transition"
+                  >
+                    <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                    Open
+                  </button>
+                  <button
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = toAbsoluteUrl(note.fileUrl);
+                      a.download = `${note.title}.pdf`;
+                      a.click();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 rounded-lg text-xs font-medium transition"
+                  >
+                    <ArrowDownTrayIcon className="w-4 h-4" />
+                    Download
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </div>
-    );
-  }
 
-  // ─── Single note viewer ───────────────────────────────────────────────────
-  if (noteLoading) return <div className="text-white">Loading note...</div>;
-  if (!note) return <div className="text-textLight">Note not found.</div>;
-
-  const isPdf = note.fileType === 'application/pdf';
-  const fileUrl = note.fileUrl.startsWith('http') ? note.fileUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${note.fileUrl}`;
-
-  return (
-    <div className="flex flex-col h-full space-y-4">
-
-      {/* NEW_NOTE notification banner */}
-      <AnimatePresence>
-        {newNoteNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex items-center justify-between bg-brand/20 border border-brand/40 rounded-xl px-4 py-3"
-          >
-            <div className="flex items-center gap-3">
-              <BellIcon className="w-5 h-5 text-brand" />
-              <span className="text-white text-sm">
-                New note uploaded: <strong>{newNoteNotification.title}</strong> ({newNoteNotification.subject})
-              </span>
+      {/* Student: Upload Notes */}
+      {isStudent && (
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <CloudArrowUpIcon className="w-5 h-5 text-purple-300" />
+            Upload Notes for Review
+          </h2>
+          <form onSubmit={handleUpload} className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-300">Title *</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="Enter note title"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-white focus:border-purple-500 outline-none transition"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-300">Subject</label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  placeholder="e.g. Data Structures"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-white focus:border-purple-500 outline-none transition"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-300">Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-white focus:border-purple-500 outline-none transition"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-300">File (PDF) *</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={e => setFile(e.target.files?.[0] ?? null)}
+                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2 text-gray-300 text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
+                  required
+                />
+              </div>
             </div>
-            <button onClick={() => setNewNoteNotification(null)}>
-              <XMarkIcon className="w-4 h-4 text-textLight hover:text-white" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <div className="flex items-center justify-between bg-surface/40 p-4 rounded-xl border border-white/5">
-        <div className="flex items-center gap-4">
-          <div className="p-2 bg-brand/10 rounded-lg">
-            <DocumentTextIcon className="w-6 h-6 text-brand" />
-          </div>
-          <div>
-            <h1 className="text-white font-bold">{note.title}</h1>
-            <p className="text-xs text-textLight">
-              {note.subject} · {note.topic} · {note.teacher?.name} · {new Date(note.lectureDate).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9" onClick={toggleBookmark}>
-            {isBookmarked
-              ? <BookmarkSolid className="w-4 h-4 text-brand" />
-              : <BookmarkOutline className="w-4 h-4" />}
-          </Button>
-          <Button variant="outline" size="sm" className="h-9" onClick={() => setSearchParams({})}>
-            ← Back
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
-
-        {/* Document viewer */}
-        <div className="lg:col-span-3 bg-surface/20 rounded-2xl border border-white/5 overflow-auto flex flex-col items-center p-4 relative">
-          {isPdf ? (
-            <>
-              <Document
-                file={fileUrl}
-                onLoadSuccess={({ numPages: n }) => setNumPages(n)}
-                className="w-full"
-              >
-                <div
-                  ref={pageRef}
-                  className="relative cursor-crosshair"
-                  onClick={handlePageClick}
-                >
-                  <Page pageNumber={currentPage} width={Math.min(800, window.innerWidth - 80)} />
-
-                  {/* Render annotation pins for current page */}
-                  {annotations
-                    .filter((a) => a.page === currentPage && a.positionX != null && a.positionY != null)
-                    .map((a) => (
-                      <div
-                        key={a.id}
-                        title={a.content}
-                        className="absolute w-4 h-4 bg-brand rounded-full border-2 border-white shadow-lg cursor-pointer"
-                        style={{
-                          left: `${a.positionX}%`,
-                          top: `${a.positionY}%`,
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                      />
-                    ))}
-
-                  {/* Annotation popover */}
-                  {popover && (
-                    <div
-                      className="absolute z-20 bg-surface border border-brand/40 rounded-xl p-3 shadow-2xl w-56"
-                      style={{ left: popover.x, top: popover.y }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <textarea
-                        autoFocus
-                        className="w-full bg-transparent text-white text-xs resize-none outline-none border border-white/10 rounded p-2 mb-2"
-                        rows={3}
-                        placeholder="Add annotation..."
-                        value={annotationText}
-                        onChange={(e) => setAnnotationText(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 text-xs" onClick={submitAnnotation} disabled={savingAnnotation}>
-                          {savingAnnotation ? 'Saving...' : 'Save'}
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => setPopover(null)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Document>
-
-              {/* Page controls */}
-              {numPages > 1 && (
-                <div className="flex items-center gap-4 mt-4">
-                  <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>
-                    ← Prev
-                  </Button>
-                  <span className="text-textLight text-sm">{currentPage} / {numPages}</span>
-                  <Button variant="outline" size="sm" disabled={currentPage >= numPages} onClick={() => setCurrentPage((p) => p + 1)}>
-                    Next →
-                  </Button>
-                </div>
+            <button
+              type="submit"
+              disabled={isUploading}
+              className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition disabled:opacity-50"
+            >
+              {isUploading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <CloudArrowUpIcon className="w-4 h-4" />
               )}
-            </>
+              {isUploading ? 'Uploading...' : 'Submit for Review'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Student: My Uploads */}
+      {isStudent && (
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-bold text-white">My Uploads</h2>
+          {myUploads.length === 0 ? (
+            <p className="text-sm text-gray-400">No uploads yet.</p>
           ) : (
-            <img src={fileUrl} alt={note.title} className="max-w-full rounded-xl" />
+            <div className="space-y-3">
+              {myUploads.map(upload => {
+                const cfg = STATUS_CONFIG[upload.status];
+                return (
+                  <div
+                    key={upload.id}
+                    className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-white font-medium truncate">{upload.title}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {upload.subject && <span>{upload.subject} • </span>}
+                        {upload.date
+                          ? new Date(upload.date).toLocaleDateString()
+                          : new Date(upload.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span
+                      className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-semibold ${cfg.className}`}
+                    >
+                      {cfg.icon}
+                      {cfg.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
+      )}
 
-        {/* Annotations sidebar */}
-        <div className="glass-card p-5 flex flex-col min-h-0">
-          <h2 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-            <ChatBubbleBottomCenterTextIcon className="w-5 h-5 text-brand" />
-            Annotations ({annotations.length})
+      {/* Teacher: Pending Student Notes for Review */}
+      {isTeacher && pendingNotes.length > 0 && (
+        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <ClockIcon className="w-5 h-5 text-yellow-400" />
+            Pending Student Notes ({pendingNotes.length})
           </h2>
-          <div className="flex-1 overflow-auto space-y-3 pr-1 custom-scrollbar">
-            {annotations.length === 0 ? (
-              <p className="text-textLight text-xs italic">Click on the PDF to add annotations.</p>
-            ) : (
-              annotations.map((a) => (
-                <div key={a.id} className="p-3 bg-surface/60 rounded-xl border border-white/5 space-y-1">
-                  {a.page != null && (
-                    <span className="text-[10px] text-brand font-bold">Page {a.page}</span>
-                  )}
-                  <p className="text-xs text-white leading-relaxed">{a.content}</p>
-                  <p className="text-[10px] text-textLight">{new Date(a.createdAt).toLocaleString()}</p>
+          <div className="space-y-3">
+            {pendingNotes.map((note: any) => (
+              <div
+                key={note.id}
+                className="rounded-xl border border-yellow-500/20 bg-white/5 p-4 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-white font-medium truncate">{note.title}</p>
+                  <p className="text-xs text-gray-400">
+                    {note.student?.name || 'Student'} • {note.subject}
+                  </p>
                 </div>
-              ))
-            )}
-          </div>
-          <div className="pt-4 border-t border-white/5">
-            <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => setPopover(null)}>
-              <PencilSquareIcon className="w-4 h-4" />
-              Click PDF to annotate
-            </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => window.open(toAbsoluteUrl(note.fileUrl), '_blank')}
+                    className="px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 rounded-lg text-xs font-medium transition"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => handleApproveNote(note.id, 'APPROVED')}
+                    className="px-3 py-1.5 bg-green-500/20 border border-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-xs font-medium transition"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleApproveNote(note.id, 'REJECTED')}
+                    className="px-3 py-1.5 bg-red-500/20 border border-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-xs font-medium transition"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

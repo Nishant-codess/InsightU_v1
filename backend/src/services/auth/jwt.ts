@@ -4,6 +4,7 @@ export enum UserRole {
   STUDENT = 'STUDENT',
   TEACHER = 'TEACHER',
   ADMIN = 'ADMIN',
+  PARENT = 'PARENT',
 }
 
 export interface TokenPayload {

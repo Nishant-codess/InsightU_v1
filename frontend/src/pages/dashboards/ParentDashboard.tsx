@@ -2,12 +2,27 @@ import { motion } from 'framer-motion';
 import { 
   UserIcon, 
   ChartBarIcon,
-  CalendarIcon
+  CalendarIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useState, useEffect } from 'react';
+
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 
 export default function ParentDashboard() {
-  const { user, portalData } = useAuthStore();
+  const { user, portalData, token } = useAuthStore();
+  const [calendarDays, setCalendarDays] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}/calendar-days`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => setCalendarDays(data))
+      .catch(console.error);
+  }, [token]);
 
   if (!portalData) {
     return (
@@ -24,20 +39,57 @@ export default function ParentDashboard() {
   const attendance = portalData.attendance || [];
   const marks = portalData.marks || [];
 
+  // Find today's day order
+  const today = new Date();
+  const todayCalDay = calendarDays.find(cd => {
+    const [yyyy, mm, dd] = cd.date.split('T')[0].split('-');
+    const y = parseInt(yyyy, 10);
+    const m = parseInt(mm, 10) - 1;
+    const d = parseInt(dd, 10);
+    return y === today.getFullYear() && 
+           m === today.getMonth() && 
+           d === today.getDate();
+  });
+
   return (
     <div className="min-h-screen p-6 space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-panel p-6"
+        className="glass-panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-6"
       >
-        <h1 className="text-3xl font-bold text-white mb-2 font-outfit">
-          Welcome, {user?.parent?.name}
-        </h1>
-        <p className="text-textLight">
-          Monitoring: {profile.name || user?.parent?.childSrmEmail}
-        </p>
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2 font-outfit">
+            Welcome, {user?.parent?.name}
+          </h1>
+          <p className="text-textLight flex items-center gap-2">
+            <UserIcon className="w-4 h-4 text-brand" />
+            Monitoring: <span className="text-white font-medium">{profile.name || user?.parent?.childSrmEmail}</span>
+          </p>
+        </div>
+
+        {/* Today's Day Order Highlight */}
+        {todayCalDay && (
+          <div className="bg-gradient-to-br from-emerald-900/40 to-black/60 border border-emerald-500/30 rounded-2xl p-5 shadow-[0_0_30px_rgba(16,185,129,0.15)] flex items-center gap-5">
+             <div className="bg-emerald-500/20 p-3 rounded-xl border border-emerald-500/30">
+                <ClockIcon className="w-8 h-8 text-emerald-400" />
+             </div>
+             <div>
+                <p className="text-emerald-400/80 text-xs font-bold uppercase tracking-widest mb-1">Today's Academic Schedule</p>
+                <div className="flex items-end gap-3">
+                  <h2 className="text-3xl font-black text-emerald-50 tracking-tight">
+                    {todayCalDay.dayOrder ? `Day Order ${todayCalDay.dayOrder}` : 'No Day Order'}
+                  </h2>
+                  {todayCalDay.name && (
+                     <span className="text-sm font-medium text-emerald-200 mb-1 max-w-[200px] truncate" title={todayCalDay.name}>
+                       • {todayCalDay.name}
+                     </span>
+                  )}
+                </div>
+             </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Child Profile */}

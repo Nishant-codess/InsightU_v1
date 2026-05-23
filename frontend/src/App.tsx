@@ -16,6 +16,16 @@ import ClassroomList from './pages/classroom/ClassroomList';
 import ClassroomDetail from './pages/classroom/ClassroomDetail';
 import WhiteboardList from './pages/whiteboard/WhiteboardList';
 import WhiteboardEditor from './pages/whiteboard/WhiteboardEditor';
+import AITestsPage from './pages/quiz/AITestsPage';
+import CalendarPage from './pages/calendar/CalendarPage';
+import NotesViewer from './pages/notes/NotesViewer';
+import SamplePapersPage from './pages/papers/SamplePapersPage';
+import LiveSessionsPage from './pages/live-class/LiveSessionsPage';
+import LiveClass from './pages/live-class/LiveClass';
+import AITestRunner from './pages/quiz/AITestRunner';
+import AboutUs from './pages/AboutUs';
+import TimetablePage from './pages/student/TimetablePage';
+import PerformancePage from './pages/student/PerformancePage';
 import { useAuthStore } from './store/useAuthStore';
 
 const queryClient = new QueryClient();
@@ -55,6 +65,9 @@ function App() {
             <Route path="/admin-login" element={<AdminLogin />} />
           </Route>
 
+          {/* Live Class is full-screen, outside dashboard layout */}
+          <Route path="/live-class/:sessionId" element={<LiveClass />} />
+
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardRouter />} />
             <Route path="/profile" element={<Profile />} />
@@ -66,6 +79,29 @@ function App() {
             {/* Whiteboard */}
             <Route path="/whiteboard" element={<WhiteboardList />} />
             <Route path="/whiteboard/:whiteboardId" element={<WhiteboardEditor />} />
+
+            {/* Live Sessions (entry/discovery page) */}
+            <Route path="/live-sessions" element={<LiveSessionsPage />} />
+
+            {/* Notes */}
+            <Route path="/notes" element={<NotesViewer />} />
+
+            {/* Sample Papers */}
+            <Route path="/papers" element={<SamplePapersPage />} />
+
+            {/* Academic Calendar */}
+            <Route path="/calendar" element={<CalendarPage />} />
+
+            {/* AI Tests */}
+            <Route path="/ai-tests" element={<AITestsPage />} />
+            <Route path="/ai-tests/run" element={<AITestRunner />} />
+
+            {/* Student Specific */}
+            <Route path="/timetable" element={<TimetablePage />} />
+            <Route path="/performance" element={<PerformancePage />} />
+
+            {/* About Us */}
+            <Route path="/about" element={<AboutUs />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

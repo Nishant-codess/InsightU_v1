@@ -28,9 +28,11 @@ export interface AuthResult {
     name?: string;
     student?: any;
     teacher?: any;
+    parent?: any;
   };
   accessToken: string;
   refreshToken: string;
+  portalData?: any;
 }
 
 // Number of salt rounds for bcrypt hashing
@@ -226,6 +228,7 @@ export async function loginWithEmail(
       student: true,
       teacher: true,
       admin: true,
+      parent: true,
     },
   });
 
@@ -246,7 +249,31 @@ export async function loginWithEmail(
   }
 
   // Get name from profile
-  const name = user.student?.name || user.teacher?.name || user.admin?.name;
+  const name = user.student?.name || user.teacher?.name || user.admin?.name || user.parent?.name;
+
+  let portalData = null;
+  if (user.role === 'PARENT' && user.parent?.childSrmEmail) {
+    const childUser = await prisma.user.findUnique({
+      where: { email: user.parent.childSrmEmail },
+      include: {
+        student: {
+          include: { portalData: true }
+        }
+      }
+    });
+    if (childUser?.student?.portalData) {
+      portalData = childUser.student.portalData;
+      // Inject some child profile info into portalData to avoid undefined in parent dashboard
+      portalData.profile = {
+         name: childUser.student.name,
+         registrationNumber: childUser.student.registrationNumber,
+         department: childUser.student.department,
+         program: childUser.student.course,
+         batch: childUser.student.batch,
+         semester: childUser.student.year * 2 + '' // approximation
+      };
+    }
+  }
 
   // Generate JWT tokens
   const tokens = generateTokens(user.id, user.role as UserRole, user.email);
@@ -259,8 +286,10 @@ export async function loginWithEmail(
       name,
       student: user.student,
       teacher: user.teacher,
+      parent: user.parent,
     },
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
+    portalData,
   };
 }

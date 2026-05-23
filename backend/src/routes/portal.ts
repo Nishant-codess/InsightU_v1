@@ -6,10 +6,9 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { portalService } from '../services/timetable/finalPortalService';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * GET /api/portal/all

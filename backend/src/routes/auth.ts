@@ -39,6 +39,13 @@ router.post('/login', async (req: Request, res: Response) => {
       res.json(result);
       return;
     }
+
+    // Bypass portal scraper for mock test student
+    if (email === 'nr0070@srmist.edu.in') {
+      const result = await loginWithEmail(req.body);
+      res.json(result);
+      return;
+    }
     
     // Use portal authentication for other SRM emails
     if (email && email.endsWith('@srmist.edu.in')) {

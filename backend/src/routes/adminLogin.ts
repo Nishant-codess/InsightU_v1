@@ -1,10 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import bcrypt from 'bcrypt';
 import { generateTokens } from '../services/auth/jwt';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * Admin Login

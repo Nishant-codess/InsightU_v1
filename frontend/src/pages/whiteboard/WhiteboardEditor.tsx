@@ -18,6 +18,8 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 interface Member {
   id: string;
   status: string;
+  canAnnotate: boolean;
+  annotationRequested: boolean;
   student: {
     id: string;
     name: string;
@@ -60,23 +62,39 @@ export default function WhiteboardEditor() {
   const [showMembers, setShowMembers] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Annotation states
+  const [canAnnotate, setCanAnnotate] = useState(false);
+  const [annotationRequested, setAnnotationRequested] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
+
+  // Ref to prevent flicker by avoiding reloading identical paths
+  const lastPathsStrRef = useRef('');
+
   // Drawing tools state
   const [strokeColor, setStrokeColor] = useState('#ffffff');
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [eraserMode, setEraserMode] = useState(false);
 
+  // Poll for whiteboard details and requests every 3 seconds
   useEffect(() => {
     fetchWhiteboard();
+
+    const interval = setInterval(() => {
+      fetchWhiteboard();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [whiteboardId]);
 
-  // Auto-save every 10 seconds
+  // Auto-save every 10 seconds (only if they have write permission)
   useEffect(() => {
+    if (!isTeacher && !canAnnotate) return;
     const interval = setInterval(() => {
       handleAutoSave();
     }, 10000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [whiteboardId, isTeacher, canAnnotate]);
 
   const fetchWhiteboard = async () => {
     try {
@@ -86,10 +104,20 @@ export default function WhiteboardEditor() {
       const data = await res.json();
       setWhiteboard(data.whiteboard);
       setIsTeacher(data.isTeacher);
+      setCanAnnotate(data.canAnnotate || false);
+      setAnnotationRequested(data.annotationRequested || false);
       
-      // Load existing drawing
-      if (data.whiteboard.content?.paths && canvasRef.current) {
-        await canvasRef.current.loadPaths(data.whiteboard.content.paths);
+      // Load drawing - only for student viewers so we don't overwrite teacher's active canvas
+      if (!data.isTeacher && canvasRef.current) {
+        const paths = data.whiteboard.content?.paths || [];
+        const pathsStr = JSON.stringify(paths);
+        if (pathsStr !== lastPathsStrRef.current) {
+          canvasRef.current.clearCanvas();
+          if (paths.length > 0) {
+            await canvasRef.current.loadPaths(paths);
+          }
+          lastPathsStrRef.current = pathsStr;
+        }
       }
     } catch (error) {
       console.error('Failed to fetch whiteboard:', error);
@@ -98,13 +126,15 @@ export default function WhiteboardEditor() {
     }
   };
 
-  const handleAutoSave = async () => {
+  const saveCanvasState = async () => {
     if (!canvasRef.current) return;
 
     try {
       setIsSaving(true);
       const paths = await canvasRef.current.exportPaths();
-      
+      const pathsStr = JSON.stringify(paths);
+      lastPathsStrRef.current = pathsStr; // Keep ref updated
+
       await fetch(`${API}/api/classroom/whiteboard/${whiteboardId}/content`, {
         method: 'PATCH',
         headers: {
@@ -116,23 +146,65 @@ export default function WhiteboardEditor() {
         }),
       });
     } catch (error) {
-      console.error('Auto-save failed:', error);
+      console.error('Save failed:', error);
     } finally {
       setTimeout(() => setIsSaving(false), 500);
     }
   };
 
+  const handleAutoSave = async () => {
+    await saveCanvasState();
+  };
+
   const handleUndo = () => {
     canvasRef.current?.undo();
+    setTimeout(() => saveCanvasState(), 100);
   };
 
   const handleRedo = () => {
     canvasRef.current?.redo();
+    setTimeout(() => saveCanvasState(), 100);
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (confirm('Clear entire whiteboard? This cannot be undone.')) {
       canvasRef.current?.clearCanvas();
+      setTimeout(() => saveCanvasState(), 100);
+    }
+  };
+
+  const handleRequestAnnotation = async () => {
+    try {
+      setRequestingPermission(true);
+      const res = await fetch(`${API}/api/classroom/whiteboard/${whiteboardId}/request-annotate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setAnnotationRequested(true);
+      }
+    } catch (err) {
+      console.error('Failed to request draw permission:', err);
+    } finally {
+      setRequestingPermission(false);
+    }
+  };
+
+  const handleToggleAnnotation = async (studentId: string, allowed: boolean) => {
+    try {
+      const res = await fetch(`${API}/api/classroom/whiteboard/${whiteboardId}/members/${studentId}/annotate`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ allowed }),
+      });
+      if (res.ok) {
+        fetchWhiteboard();
+      }
+    } catch (error) {
+      console.error('Failed to update annotation permission:', error);
     }
   };
 
@@ -264,97 +336,122 @@ export default function WhiteboardEditor() {
         )}
       </div>
 
-      {/* Drawing Tools */}
-      <div className="bg-[#1e1e1e] border-b border-white/10 px-4 py-2 flex items-center gap-4">
-        {/* Pen/Eraser Toggle */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setEraserMode(false)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition ${
-              !eraserMode ? 'bg-brand text-white' : 'bg-white/5 text-gray-400 hover:text-white'
-            }`}
-          >
-            <PencilIcon className="w-4 h-4" />
-            <span>Pen</span>
-          </button>
-          <button
-            onClick={() => setEraserMode(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition ${
-              eraserMode ? 'bg-brand text-white' : 'bg-white/5 text-gray-400 hover:text-white'
-            }`}
-          >
-            <TrashIcon className="w-4 h-4" />
-            <span>Eraser</span>
-          </button>
-        </div>
-
-        {/* Colors */}
-        {!eraserMode && (
+      {/* Drawing Tools or View-Only Bar */}
+      {isTeacher || canAnnotate ? (
+        <div className="bg-[#1e1e1e] border-b border-white/10 px-4 py-2 flex items-center gap-4">
+          {/* Pen/Eraser Toggle */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Color:</span>
-            <div className="flex gap-1.5">
-              {COLORS.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setStrokeColor(color)}
-                  className={`w-6 h-6 rounded border-2 transition ${
-                    strokeColor === color ? 'border-brand scale-110' : 'border-white/20'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
+            <button
+              onClick={() => setEraserMode(false)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition ${
+                !eraserMode ? 'bg-brand text-white' : 'bg-white/5 text-gray-400 hover:text-white'
+              }`}
+            >
+              <PencilIcon className="w-4 h-4" />
+              <span>Pen</span>
+            </button>
+            <button
+              onClick={() => setEraserMode(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition ${
+                eraserMode ? 'bg-brand text-white' : 'bg-white/5 text-gray-400 hover:text-white'
+              }`}
+            >
+              <TrashIcon className="w-4 h-4" />
+              <span>Eraser</span>
+            </button>
           </div>
-        )}
 
-        {/* Stroke Width */}
-        {!eraserMode && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Size:</span>
-            <div className="flex gap-1.5">
-              {STROKE_WIDTHS.map((width) => (
-                <button
-                  key={width}
-                  onClick={() => setStrokeWidth(width)}
-                  className={`w-8 h-8 rounded flex items-center justify-center transition ${
-                    strokeWidth === width ? 'bg-brand' : 'bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <div
-                    className="rounded-full bg-white"
-                    style={{ width: `${width}px`, height: `${width}px` }}
+          {/* Colors */}
+          {!eraserMode && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Color:</span>
+              <div className="flex gap-1.5">
+                {COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setStrokeColor(color)}
+                    className={`w-6 h-6 rounded border-2 transition ${
+                      strokeColor === color ? 'border-brand scale-110' : 'border-white/20'
+                    }`}
+                    style={{ backgroundColor: color }}
                   />
-                </button>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={handleUndo}
-            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white px-3 py-1.5 rounded text-sm transition"
-          >
-            <ArrowUturnLeftIcon className="w-4 h-4" />
-            <span>Undo</span>
-          </button>
-          <button
-            onClick={handleRedo}
-            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white px-3 py-1.5 rounded text-sm transition"
-          >
-            <ArrowUturnRightIcon className="w-4 h-4" />
-            <span>Redo</span>
-          </button>
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-1.5 rounded text-sm transition"
-          >
-            <TrashIcon className="w-4 h-4" />
-            <span>Clear</span>
-          </button>
+          {/* Stroke Width */}
+          {!eraserMode && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Size:</span>
+              <div className="flex gap-1.5">
+                {STROKE_WIDTHS.map((width) => (
+                  <button
+                    key={width}
+                    onClick={() => setStrokeWidth(width)}
+                    className={`w-8 h-8 rounded flex items-center justify-center transition ${
+                      strokeWidth === width ? 'bg-brand' : 'bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <div
+                      className="rounded-full bg-white"
+                      style={{ width: `${width}px`, height: `${width}px` }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={handleUndo}
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white px-3 py-1.5 rounded text-sm transition"
+            >
+              <ArrowUturnLeftIcon className="w-4 h-4" />
+              <span>Undo</span>
+            </button>
+            <button
+              onClick={handleRedo}
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white px-3 py-1.5 rounded text-sm transition"
+            >
+              <ArrowUturnRightIcon className="w-4 h-4" />
+              <span>Redo</span>
+            </button>
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-1.5 rounded text-sm transition"
+            >
+              <TrashIcon className="w-4 h-4" />
+              <span>Clear</span>
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-[#1e1e1e] border-b border-white/10 px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse" />
+            <span className="text-sm text-gray-300 font-medium">You are in View-Only mode</span>
+          </div>
+          {annotationRequested ? (
+            <button
+              disabled
+              className="bg-yellow-600/20 text-yellow-300 border border-yellow-500/30 px-4 py-1.5 rounded text-xs font-semibold"
+            >
+              Drawing Request Pending Approval...
+            </button>
+          ) : (
+            <button
+              onClick={handleRequestAnnotation}
+              disabled={requestingPermission}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded text-xs font-semibold transition disabled:opacity-50"
+            >
+              {requestingPermission ? 'Requesting...' : 'Request Draw Permission'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Canvas */}
       <div className="flex-1 relative overflow-hidden">
@@ -368,6 +465,7 @@ export default function WhiteboardEditor() {
             height: '100%',
           }}
           eraserWidth={20}
+          allowOnlyPointerType={(!isTeacher && !canAnnotate) ? 'none' : 'all'}
         />
       </div>
 
@@ -388,11 +486,38 @@ export default function WhiteboardEditor() {
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
               {approvedMembers.map((member) => (
-                <div key={member.id} className="bg-white/5 rounded-lg p-3 border border-white/10">
-                  <p className="text-white text-sm font-medium">{member.student.name}</p>
-                  <p className="text-gray-400 text-xs">{member.student.registrationNumber}</p>
+                <div key={member.id} className="bg-white/5 rounded-lg p-3 border border-white/10 flex flex-col gap-2">
+                  <div>
+                    <p className="text-white text-sm font-medium">{member.student.name}</p>
+                    <p className="text-gray-400 text-xs">{member.student.registrationNumber}</p>
+                  </div>
+                  {isTeacher && (
+                    <div className="flex items-center justify-between mt-1 pt-2 border-t border-white/5">
+                      <span className="text-[11px] text-gray-400">
+                        {member.canAnnotate ? (
+                          <span className="text-green-400 font-medium">Drawing Allowed</span>
+                        ) : member.annotationRequested ? (
+                          <span className="text-yellow-400 animate-pulse font-medium">Requested Draw</span>
+                        ) : (
+                          <span>View Only</span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => handleToggleAnnotation(member.student.id, !member.canAnnotate)}
+                        className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
+                          member.canAnnotate
+                            ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                            : member.annotationRequested
+                            ? 'bg-yellow-500 text-black hover:bg-yellow-600'
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {member.canAnnotate ? 'Revoke Draw' : 'Allow Draw'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               {approvedMembers.length === 0 && (

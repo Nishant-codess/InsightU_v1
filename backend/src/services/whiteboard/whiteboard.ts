@@ -101,15 +101,35 @@ export async function getWhiteboardDetails(whiteboardId: string, userId: string)
   });
   
   const isTeacher = teacher?.userId === userId;
-  const isMember = whiteboard.members.some(
-    (m) => m.student.userId === userId && m.status === 'APPROVED'
-  );
+  const memberRecord = whiteboard.members.find((m) => m.student.userId === userId);
+  const isMember = memberRecord?.status === 'APPROVED';
 
+  // If student is PENDING, return basic info with isPending flag instead of throwing
+  const isPendingMember = whiteboard.members.find((m) => m.student.userId === userId && m.status === 'PENDING');
   if (!isTeacher && !isMember) {
+    if (isPendingMember) {
+      return {
+        whiteboard: {
+          ...whiteboard,
+          content: {},
+          members: [],
+        },
+        isTeacher: false,
+        canAnnotate: false,
+        annotationRequested: false,
+        isPending: true,
+      };
+    }
     throw new Error('Access denied to this whiteboard');
   }
 
-  return { whiteboard, isTeacher };
+  return { 
+    whiteboard, 
+    isTeacher,
+    canAnnotate: isTeacher ? true : (memberRecord?.canAnnotate || false),
+    annotationRequested: memberRecord?.annotationRequested || false,
+    isPending: false,
+  };
 }
 
 /**
@@ -339,6 +359,7 @@ export async function getStudentWhiteboards(studentId: string) {
     where: {
       studentId,
       status: 'APPROVED',
+      whiteboard: { isActive: true }, // Filter out soft-deleted whiteboards
     },
     include: {
       whiteboard: {
@@ -396,4 +417,73 @@ export async function deleteWhiteboard(whiteboardId: string, teacherId: string) 
   });
 
   return { success: true };
+}
+
+/**
+ * Student requests annotation permission
+ */
+export async function requestAnnotationPermission(whiteboardId: string, studentUserId: string) {
+  const student = await prisma.student.findUnique({
+    where: { userId: studentUserId },
+  });
+
+  if (!student) {
+    throw new Error('Student profile not found');
+  }
+
+  const member = await prisma.whiteboardMember.update({
+    where: {
+      whiteboardId_studentId: {
+        whiteboardId,
+        studentId: student.id,
+      },
+    },
+    data: {
+      annotationRequested: true,
+    },
+  });
+
+  return member;
+}
+
+/**
+ * Teacher grants/revokes annotation permission
+ */
+export async function updateAnnotationPermission(
+  whiteboardId: string,
+  studentId: string,
+  teacherUserId: string,
+  allowed: boolean
+) {
+  // Verify teacher owns the whiteboard
+  const whiteboard = await prisma.whiteboard.findUnique({
+    where: { id: whiteboardId },
+  });
+
+  if (!whiteboard) {
+    throw new Error('Whiteboard not found');
+  }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId: teacherUserId },
+  });
+
+  if (!teacher || whiteboard.teacherId !== teacher.id) {
+    throw new Error('Access denied');
+  }
+
+  const member = await prisma.whiteboardMember.update({
+    where: {
+      whiteboardId_studentId: {
+        whiteboardId,
+        studentId,
+      },
+    },
+    data: {
+      canAnnotate: allowed,
+      annotationRequested: false, // Clear the pending request
+    },
+  });
+
+  return member;
 }

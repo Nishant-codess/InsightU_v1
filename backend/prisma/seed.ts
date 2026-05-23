@@ -28,17 +28,6 @@ async function main() {
   await prisma.unifiedSlot.deleteMany();
   await prisma.calendarDay.deleteMany();
   
-  await prisma.academicHealth.deleteMany();
-  await prisma.studentPerformance.deleteMany();
-  await prisma.studentExamMarks.deleteMany();
-  await prisma.quizParticipation.deleteMany();
-  await prisma.quizSession.deleteMany();
-  await prisma.quiz.deleteMany();
-  await prisma.exam.deleteMany();
-  await prisma.assignment.deleteMany();
-  await prisma.noteAnnotation.deleteMany();
-  await prisma.noteBookmark.deleteMany();
-  await prisma.lectureNote.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.session.deleteMany();
   await prisma.aIProviderConfig.deleteMany();
@@ -140,6 +129,8 @@ async function main() {
             name: t.name,
             department: 'Computer Science and Engineering',
             subjects: t.subjects,
+            approvalStatus: 'APPROVED',
+            approvedAt: new Date(),
           },
         },
       },

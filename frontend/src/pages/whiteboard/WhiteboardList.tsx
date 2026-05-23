@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { PlusIcon, CodeBracketIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CodeBracketIcon, UserGroupIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
@@ -115,8 +115,34 @@ export default function WhiteboardList() {
                     )}
                   </div>
                   {isTeacher && (
-                    <div className="bg-purple-600/30 px-3 py-1 rounded-lg">
-                      <p className="text-xs text-purple-200 font-mono">{whiteboard.inviteCode}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="bg-purple-600/30 px-3 py-1 rounded-lg">
+                        <p className="text-xs text-purple-200 font-mono">{whiteboard.inviteCode}</p>
+                      </div>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('Are you sure you want to delete this whiteboard?')) {
+                            try {
+                              const res = await fetch(`${API}/api/classroom/whiteboard/${whiteboard.id}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (res.ok) {
+                                fetchWhiteboards();
+                              } else {
+                                alert('Failed to delete whiteboard');
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-300 p-1.5 rounded bg-white/5 hover:bg-red-500/10 transition"
+                        title="Delete Whiteboard"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -272,7 +298,7 @@ function JoinWhiteboardModal({ onClose, onSuccess }: { onClose: () => void; onSu
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || 'Failed to join whiteboard');
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to join whiteboard');
 
       setSuccess('Join request sent! Waiting for teacher approval.');
       setTimeout(() => onSuccess(), 2000);

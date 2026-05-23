@@ -25,6 +25,8 @@ import {
   updateWhiteboardContent,
   getStudentWhiteboards,
   deleteWhiteboard,
+  requestAnnotationPermission,
+  updateAnnotationPermission,
 } from '../services/whiteboard/whiteboard';
 
 const router = Router();
@@ -427,6 +429,16 @@ router.post('/whiteboard/join', authenticate, async (req: AuthRequest, res: Resp
       member,
     });
   } catch (error: any) {
+    const knownErrors = [
+      'Invalid invite code',
+      'This whiteboard is no longer active',
+      'You are already a member of this whiteboard',
+      'Your request is pending approval',
+      'Your request was rejected. Please contact the teacher.'
+    ];
+    if (knownErrors.includes(error.message)) {
+      return res.status(400).json({ error: error.message });
+    }
     return next(error);
   }
 });
@@ -499,6 +511,57 @@ router.patch('/whiteboard/:whiteboardId/content', authenticate, async (req: Auth
     const whiteboard = await updateWhiteboardContent(req.params.whiteboardId, userId, content);
 
     return res.status(200).json({ whiteboard });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * POST /api/classroom/whiteboard/:whiteboardId/request-annotate
+ * Student requests annotation permission
+ */
+router.post('/whiteboard/:whiteboardId/request-annotate', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const student = await prisma.student.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!student) {
+      return res.status(403).json({ error: 'Student only' });
+    }
+
+    const member = await requestAnnotationPermission(req.params.whiteboardId, req.userAuth?.userId!);
+    return res.status(200).json({ success: true, member });
+  } catch (error: any) {
+    return next(error);
+  }
+});
+
+/**
+ * PATCH /api/classroom/whiteboard/:whiteboardId/members/:studentId/annotate
+ * Teacher grants/revokes annotation permission
+ */
+router.patch('/whiteboard/:whiteboardId/members/:studentId/annotate', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.userAuth?.userId },
+    });
+    if (!teacher) {
+      return res.status(403).json({ error: 'Teacher only' });
+    }
+
+    const { allowed } = req.body;
+    if (typeof allowed !== 'boolean') {
+      return res.status(400).json({ error: 'allowed boolean parameter is required' });
+    }
+
+    const member = await updateAnnotationPermission(
+      req.params.whiteboardId,
+      req.params.studentId,
+      req.userAuth?.userId!,
+      allowed
+    );
+
+    return res.status(200).json({ success: true, member });
   } catch (error: any) {
     return next(error);
   }

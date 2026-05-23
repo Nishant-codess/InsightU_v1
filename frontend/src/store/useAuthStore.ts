@@ -52,6 +52,8 @@ export interface User {
   registrationNumber?: string;
   student?: {
      id: string;
+     name?: string;
+     registrationNumber?: string;
      year: number;
      section: string;
      batch: string;
@@ -59,7 +61,7 @@ export interface User {
   };
   teacher?: {
      id: string;
-     name: string;
+     name?: string;
      department: string;
      subjects: string[];
   };

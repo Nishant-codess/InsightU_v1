@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import bcrypt from 'bcrypt';
 import { generateTokens } from '../services/auth/jwt';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -12,7 +12,6 @@ import { uploadToSupabase } from '../config/supabase';
 import multer from 'multer';
 
 const router = Router();
-const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
 // Multer config for memory storage (Supabase upload)
@@ -220,9 +219,29 @@ router.post('/login', async (req, res) => {
       );
       if (childData.success) {
         portalData = childData.data;
+      } else {
+         throw new Error("Live portal fetch failed");
       }
     } catch (error) {
-      console.log('Could not fetch child portal data:', error);
+      console.log('Could not fetch child portal data, falling back to mock DB data:', error);
+      // Fallback to database for mock users
+      const childUser = await prisma.user.findUnique({
+         where: { email: user.parent.childSrmEmail },
+         include: { student: { include: { portalData: true } } }
+      });
+      if (childUser?.student?.portalData) {
+         portalData = {
+            ...childUser.student.portalData,
+            profile: {
+               name: childUser.student.name,
+               registrationNumber: childUser.student.registrationNumber,
+               department: childUser.student.department,
+               program: childUser.student.course,
+               batch: childUser.student.batch,
+               semester: childUser.student.year * 2 + ''
+            }
+         };
+      }
     }
 
     res.json({

@@ -9,7 +9,20 @@ import {
 import { Button } from '../../components/ui/Button';
 
 export default function Profile() {
-  const { user } = useAuthStore();
+  const { user, portalData } = useAuthStore();
+  
+  const profile = portalData?.profile || {};
+  
+  // Determine whose name to show based on Role
+  let name = 'Academic Scholar';
+  if (user?.role === 'PARENT') {
+    name = user?.parent?.name || user?.name || 'Parent';
+  } else {
+    name = profile.name || user?.student?.name || user?.teacher?.name || user?.admin?.name || user?.name || 'Academic Scholar';
+  }
+
+  const regNo = profile.registrationNumber || user?.student?.registrationNumber || user?.email;
+  const initial = name !== 'Academic Scholar' && name !== 'Parent' ? name[0] : user?.email?.[0] || 'U';
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -20,8 +33,8 @@ export default function Profile() {
           </div>
           
           <div className="relative">
-              <div className="w-32 h-32 rounded-3xl bg-brand/20 border-2 border-brand/40 flex items-center justify-center text-5xl font-bold text-brand shadow-2xl shadow-brand/20">
-                  {user?.name?.[0] || user?.email?.[0]}
+              <div className="w-32 h-32 rounded-3xl bg-brand/20 border-2 border-brand/40 flex items-center justify-center text-5xl font-bold text-brand shadow-2xl shadow-brand/20 uppercase">
+                  {initial}
               </div>
               <div className="absolute -bottom-2 -right-2 bg-background border border-white/10 p-2 rounded-xl shadow-lg">
                   <ShieldCheckIcon className="w-5 h-5 text-brand" />
@@ -29,7 +42,7 @@ export default function Profile() {
           </div>
 
           <div className="text-center md:text-left space-y-2">
-              <h1 className="text-4xl font-bold text-white tracking-tight">{user?.name || 'Academic Scholar'}</h1>
+              <h1 className="text-4xl font-bold text-white tracking-tight">{name}</h1>
               <div className="flex flex-wrap justify-center md:justify-start gap-3 items-center text-textLight">
                   <span className="flex items-center gap-1 text-xs">
                       <EnvelopeIcon className="w-4 h-4" />
@@ -47,25 +60,29 @@ export default function Profile() {
           <div className="glass-card p-6 space-y-6">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <IdentificationIcon className="w-5 h-5 text-brand" />
-                  Institutional Identity
+                  {user?.role === 'PARENT' ? 'Linked Child Identity' : 'Institutional Identity'}
               </h2>
               <div className="space-y-4">
                   <div className="flex justify-between items-center py-3 border-b border-white/5">
-                      <span className="text-sm text-textLight">Registration Number</span>
-                      <span className="text-sm text-white font-mono">{user?.student?.id?.slice(0, 10).toUpperCase() || 'RA241100...'}</span>
+                      <span className="text-sm text-textLight">Registration / ID</span>
+                      <span className="text-sm text-white font-mono">{regNo}</span>
                   </div>
-                  <div className="flex justify-between items-center py-3 border-b border-white/5">
-                      <span className="text-sm text-textLight">Current Section</span>
-                      <span className="text-sm text-white font-bold">{user?.student?.section || 'A'}{user?.student?.batch === 'Batch 1' ? '1' : '2'}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 border-b border-white/5">
-                      <span className="text-sm text-textLight">Academic Year</span>
-                      <span className="text-sm text-white">{user?.student?.year || 2}nd Year</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3">
-                      <span className="text-sm text-textLight">Department</span>
-                      <span className="text-sm text-white">{user?.student?.department || 'Computer Science'}</span>
-                  </div>
+                  {user?.student && (
+                    <>
+                      <div className="flex justify-between items-center py-3 border-b border-white/5">
+                          <span className="text-sm text-textLight">Current Section</span>
+                          <span className="text-sm text-white font-bold">{user.student.section || ('A' + (user.student.batch === 'Batch 1' ? '1' : '2'))}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-3 border-b border-white/5">
+                          <span className="text-sm text-textLight">Academic Year</span>
+                          <span className="text-sm text-white">{user.student.year || 2}nd Year</span>
+                      </div>
+                      <div className="flex justify-between items-center py-3">
+                          <span className="text-sm text-textLight">Department</span>
+                          <span className="text-sm text-white">{profile.department || user.student.department || 'Computer Science'}</span>
+                      </div>
+                    </>
+                  )}
               </div>
           </div>
 

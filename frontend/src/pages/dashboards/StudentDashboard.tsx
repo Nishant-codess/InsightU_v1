@@ -28,6 +28,10 @@ export default function StudentDashboard() {
   const timetable = portalData?.timetable || [];
   const attendance = portalData?.attendance || [];
   const marks = portalData?.marks || [];
+  const studentName = profile.name || user?.student?.name || user?.name || 'STUDENT';
+  const regNo = profile.registrationNumber || user?.student?.registrationNumber || user?.email;
+  const sem = profile.semester || (user?.student?.year ? user.student.year * 2 : '?');
+  const batchName = profile.batch || user?.student?.batch || '?';
 
   // Calculate overall attendance
   const overallAttendance = attendance.length > 0
@@ -37,7 +41,7 @@ export default function StudentDashboard() {
   // Subjects below 75%
   const lowAttendance = attendance.filter(a => parseFloat(a.attendancePercent) < 75);
 
-  const noData = !portalData;
+  const noData = !portalData && !user?.student;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -45,10 +49,10 @@ export default function StudentDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-black text-white tracking-tighter">
-            HELLO, {(profile.name || user?.name || 'STUDENT').split(' ')[0].toUpperCase()}
+            HELLO, {studentName.split(' ')[0].toUpperCase()}
           </h1>
           <p className="text-textLight mt-1 text-xs font-medium bg-white/5 w-fit px-3 py-1 rounded-full uppercase tracking-widest">
-            {profile.registrationNumber || user?.email} • Sem {profile.semester || '?'} • Batch {profile.batch || '?'}
+            {regNo} • Sem {sem} • Batch {batchName}
           </p>
         </div>
 
@@ -113,12 +117,12 @@ export default function StudentDashboard() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    ['Name', profile.name],
-                    ['Reg No', profile.registrationNumber],
-                    ['Program', profile.program],
-                    ['Department', profile.department],
-                    ['Semester', profile.semester],
-                    ['Batch', profile.batch],
+                    ['Name', studentName],
+                    ['Reg No', regNo],
+                    ['Program', profile.program || 'B.Tech'],
+                    ['Department', profile.department || user?.student?.department],
+                    ['Semester', sem],
+                    ['Batch', batchName],
                   ].map(([label, value]) => value ? (
                     <div key={label} className="flex justify-between items-start gap-2">
                       <span className="text-xs text-textLight uppercase tracking-wider shrink-0">{label}</span>

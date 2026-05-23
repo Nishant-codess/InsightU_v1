@@ -2,7 +2,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from './PageTransition';
-import { BookOpenIcon, ChartBarIcon, UserIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, PresentationChartBarIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ChartBarIcon, UserIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, PresentationChartBarIcon, SparklesIcon, CalendarDaysIcon, DocumentTextIcon, VideoCameraIcon, NewspaperIcon, InformationCircleIcon, ClockIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import ThemeSwitcher from '../ui/ThemeSwitcher';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,11 +21,22 @@ export default function DashboardLayout() {
    }
 
    const NavItems = [
-       { id: 'dash',      label: 'Dashboard',   path: '/dashboard',  icon: ChartBarIcon,             },
-       { id: 'classroom', label: 'Classrooms',  path: '/classroom',  icon: PresentationChartBarIcon, },
-       { id: 'whiteboard',label: 'Whiteboard',  path: '/whiteboard', icon: BookOpenIcon,             },
-       { id: 'profile',   label: 'Profile',     path: '/profile',    icon: Cog6ToothIcon,            },
+       { id: 'dash',        label: 'Dashboard',     path: '/dashboard',    icon: ChartBarIcon, },
+       { id: 'classroom',   label: 'Classrooms',    path: '/classroom',    icon: PresentationChartBarIcon, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+       { id: 'timetable',   label: 'Timetable',     path: '/timetable',    icon: ClockIcon, roles: ['STUDENT', 'PARENT'] },
+       { id: 'performance', label: 'Performance',   path: '/performance',  icon: ClipboardDocumentListIcon, roles: ['STUDENT', 'PARENT'] },
+       { id: 'whiteboard',  label: 'Whiteboard',    path: '/whiteboard',   icon: BookOpenIcon, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+       { id: 'live',        label: 'Live Session',  path: '/live-sessions', icon: VideoCameraIcon, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+       { id: 'notes',       label: 'Notes',         path: '/notes',        icon: DocumentTextIcon, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+       { id: 'papers',      label: 'Sample Papers', path: '/papers',       icon: NewspaperIcon, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+       { id: 'calendar',    label: 'Calendar',      path: '/calendar',     icon: CalendarDaysIcon, },
+       { id: 'ai-tests',    label: 'AI Tests',      path: '/ai-tests',     icon: SparklesIcon, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+       { id: 'about',       label: 'About Us',      path: '/about',        icon: InformationCircleIcon, },
+       { id: 'profile',     label: 'Profile',       path: '/profile',      icon: Cog6ToothIcon, },
    ];
+
+   const visibleNavItems = NavItems.filter(item => !item.roles || item.roles.includes(user.role));
+
 
    return (
        <div className="min-h-screen bg-background text-textLight flex relative">
@@ -44,21 +55,21 @@ export default function DashboardLayout() {
                  <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand to-brandDark">InsightU</h1>
               </div>
 
-              <div className="flex-1 py-6 px-4 space-y-2">
-                 {NavItems.map((item) => {
-                     const active = location.pathname.startsWith(item.path);
-                     return (
-                         <Link key={item.id} to={item.path}>
-                             <div className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                                 active ? 'bg-brand/10 text-brand border border-brand/20' : 'text-gray-400 hover:text-white hover:bg-white/5'
-                             }`}>
-                                 <item.icon className="h-5 w-5" />
-                                 <span className="font-medium text-sm">{item.label}</span>
-                             </div>
-                         </Link>
-                     );
-                 })}
-              </div>
+               <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+                  {visibleNavItems.map((item) => {
+                      const active = location.pathname.startsWith(item.path);
+                      return (
+                          <Link key={item.id} to={item.path}>
+                              <div className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                  active ? 'bg-brand/10 text-brand border border-brand/20' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                              }`}>
+                                  <item.icon className="h-5 w-5" />
+                                  <span className="font-medium text-sm">{item.label}</span>
+                              </div>
+                          </Link>
+                      );
+                  })}
+               </div>
 
               <div className="p-4 border-t border-white/5">
                  <Link to="/profile">

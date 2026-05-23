@@ -3,14 +3,13 @@
  */
 
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import bcrypt from 'bcrypt';
 import { generateTokens } from '../services/auth/jwt';
 import { uploadToSupabase } from '../config/supabase';
 import multer from 'multer';
 
 const router = Router();
-const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
 // Multer config for memory storage (Supabase upload)
