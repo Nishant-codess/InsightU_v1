@@ -294,11 +294,13 @@ const LiveClass: React.FC = () => {
                     <p className="text-gray-400 text-sm">Please refresh the Teacher's browser tab to clear the old session state.</p>
                   </div>
                 ) : (
-                  <iframe
-                    src={pdfUrl}
-                    className="w-full h-full border-none"
-                    title="PDF Viewer"
-                  />
+                  <div className="w-full h-full overflow-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <iframe
+                      src={pdfUrl}
+                      className="w-full h-[150vh] md:h-full border-none"
+                      title="PDF Viewer"
+                    />
+                  </div>
                 )
               ) : isTeacher ? (
                 <div className="text-center space-y-4">
@@ -324,7 +326,9 @@ const LiveClass: React.FC = () => {
                 <video
                   ref={videoRef}
                   src={videoUrl}
-                  controls={isTeacher}
+                  controls={true} // Allow students to manually play if iOS blocks autoplay
+                  playsInline // Critical for iOS video playback
+                  webkit-playsinline="true"
                   className="max-w-full max-h-full"
                   onPlay={e => isTeacher && sendMessage(MessageType.VIDEO_PLAY, { time: (e.target as HTMLVideoElement).currentTime })}
                   onPause={e => isTeacher && sendMessage(MessageType.VIDEO_PAUSE, { time: (e.target as HTMLVideoElement).currentTime })}

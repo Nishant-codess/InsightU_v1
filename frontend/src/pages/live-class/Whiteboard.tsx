@@ -50,13 +50,19 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({
   const currentId = useRef<string>('');
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const [stageSize, setStageSize] = useState({ width: window.innerWidth - 320, height: window.innerHeight - 64 });
+  const [stageSize, setStageSize] = useState({ 
+    width: Math.max(window.innerWidth, 2000), 
+    height: Math.max(window.innerHeight, 2000) 
+  });
   const processedIndexRef = useRef(-1);
 
   // Resize handler
   useEffect(() => {
     const handleResize = () => {
-      setStageSize({ width: window.innerWidth - 320, height: window.innerHeight - 64 });
+      setStageSize({ 
+        width: Math.max(window.innerWidth, 2000), 
+        height: Math.max(window.innerHeight, 2000) 
+      });
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -343,7 +349,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({
       )}
 
       {/* Canvas */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-auto touch-pan-x touch-pan-y overscroll-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
