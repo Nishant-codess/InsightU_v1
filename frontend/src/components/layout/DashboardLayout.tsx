@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from './PageTransition';
-import { BookOpenIcon, ChartBarIcon, UserIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, PresentationChartBarIcon, SparklesIcon, CalendarDaysIcon, DocumentTextIcon, VideoCameraIcon, NewspaperIcon, InformationCircleIcon, ClockIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ChartBarIcon, UserIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, PresentationChartBarIcon, SparklesIcon, CalendarDaysIcon, DocumentTextIcon, VideoCameraIcon, NewspaperIcon, InformationCircleIcon, ClockIcon, ClipboardDocumentListIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import ThemeSwitcher from '../ui/ThemeSwitcher';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,6 +13,7 @@ import DarkProBackground from '../backgrounds/DarkProBackground';
 import AnimeBackground from '../backgrounds/AnimeBackground';
 
 export default function DashboardLayout() {
+   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
    const { user, isAuthenticated, token, logout } = useAuthStore();
    const { themeId } = useTheme();
    const location = useLocation();
@@ -96,10 +98,59 @@ export default function DashboardLayout() {
            <main className="flex-1 relative overflow-auto h-screen">
               {/* Global theme switcher — visible on all pages */}
               <ThemeSwitcher />
-              <div className="md:hidden h-16 border-b border-white/10 flex items-center justify-between px-4 sticky top-0 z-10 bg-surface/50 backdrop-blur-md">
-                 <h1 className="text-xl font-bold text-brand">InsightU</h1>
+              <div className="md:hidden h-16 border-b border-white/10 flex items-center justify-between px-4 sticky top-0 z-20 bg-surface/80 backdrop-blur-md">
+                 <div className="flex items-center gap-3">
+                    <button onClick={() => setIsMobileMenuOpen(true)}>
+                       <Bars3Icon className="h-6 w-6 text-white" />
+                    </button>
+                    <h1 className="text-xl font-bold text-brand">InsightU</h1>
+                 </div>
                  <button onClick={logout}><ArrowRightOnRectangleIcon className="h-6 w-6 text-red-400" /></button>
               </div>
+
+              {/* Mobile Sidebar Overlay */}
+              <AnimatePresence>
+                 {isMobileMenuOpen && (
+                    <motion.div 
+                       initial={{ opacity: 0 }}
+                       animate={{ opacity: 1 }}
+                       exit={{ opacity: 0 }}
+                       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden flex"
+                    >
+                       <motion.aside 
+                          initial={{ x: -300 }}
+                          animate={{ x: 0 }}
+                          exit={{ x: -300 }}
+                          className="w-64 h-full bg-[#1a1a2e] border-r border-white/10 flex flex-col"
+                       >
+                          <div className="h-16 flex items-center justify-between px-6 border-b border-white/5">
+                             <h1 className="text-xl font-bold text-brand">InsightU</h1>
+                             <button onClick={() => setIsMobileMenuOpen(false)}>
+                                <XMarkIcon className="h-6 w-6 text-gray-400" />
+                             </button>
+                          </div>
+
+                          <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+                             {visibleNavItems.map((item) => {
+                                 const active = location.pathname.startsWith(item.path);
+                                 return (
+                                     <Link key={item.id} to={item.path} onClick={() => setIsMobileMenuOpen(false)}>
+                                         <div className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                             active ? 'bg-brand/10 text-brand border border-brand/20' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                         }`}>
+                                             <item.icon className="h-5 w-5" />
+                                             <span className="font-medium text-sm">{item.label}</span>
+                                         </div>
+                                     </Link>
+                                 );
+                             })}
+                          </div>
+                       </motion.aside>
+                       {/* Click away area to close */}
+                       <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)} />
+                    </motion.div>
+                 )}
+              </AnimatePresence>
 
               <AnimatePresence mode="wait">
                  <PageTransition key={location.pathname}>
