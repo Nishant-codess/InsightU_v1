@@ -8,7 +8,7 @@ import {
 import { useAuthStore } from '../../store/useAuthStore';
 import { useState, useEffect } from 'react';
 
-const API = import.meta.env.VITE_API_URL ?? '/api';
+const API = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 export default function ParentDashboard() {
   const { user, portalData, token } = useAuthStore();

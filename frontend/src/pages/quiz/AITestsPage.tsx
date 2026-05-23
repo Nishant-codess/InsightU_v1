@@ -14,7 +14,7 @@ import {
   DocumentIcon,
 } from '@heroicons/react/24/outline';
 
-const API = import.meta.env.VITE_API_URL ?? '/api';
+const API = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 interface QuizData {
   title: string;

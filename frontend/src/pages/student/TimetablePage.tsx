@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion } from 'framer-motion';
 
-const API = import.meta.env.VITE_API_URL ?? '/api';
+const API = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 const TIME_SLOTS = [
   "08:00 - 08:50", "08:50 - 09:40", "09:45 - 10:35", "10:40 - 11:30", "11:35 - 12:25",

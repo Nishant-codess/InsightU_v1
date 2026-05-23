@@ -11,7 +11,7 @@ import {
 
 import { useAuthStore } from '../../store/useAuthStore';
 
-const API = import.meta.env.VITE_API_URL ?? '/api';
+const API = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 type ApprovedNote = {
   id: string;

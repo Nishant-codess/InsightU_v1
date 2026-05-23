@@ -139,7 +139,18 @@ router.post('/generate-test', authenticate, upload.single('file'), async (req: A
       max_tokens: 4096
     });
 
-    const response = JSON.parse(chatCompletion.choices[0]?.message?.content || '{"questions": []}');
+    let response;
+    try {
+      let content = chatCompletion.choices[0]?.message?.content || '{"questions": []}';
+      // Clean up markdown formatting if the model accidentally includes it
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      response = JSON.parse(content);
+    } catch (parseErr) {
+      console.error('JSON Parse Error from AI output:', parseErr);
+      res.status(500).json({ error: 'AI returned invalid formatting. Please try again.' });
+      return;
+    }
+    
     res.json({ ...response, subject, timePerQuestion: difficulty === 'hard' ? 90 : 60 });
   } catch (err) {
     console.error('Generation Error:', err);
@@ -187,7 +198,8 @@ router.post('/grade', authenticate, async (req: AuthRequest, res: Response, next
     });
 
     try {
-      const content = chatCompletion.choices[0]?.message?.content || '{"results": []}';
+      let content = chatCompletion.choices[0]?.message?.content || '{"results": []}';
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(content);
       res.json(result);
     } catch (parseErr) {
